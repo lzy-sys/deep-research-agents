@@ -14,4 +14,11 @@ def get_model(role: str = "research") -> ChatOpenAI:
         "summarize": cfg.MODEL_SUMMARIZE,
         "report": cfg.MODEL_REPORT,
     }[role]
-    return ChatOpenAI(model=model_id, base_url=cfg.OPENCODE_BASE_URL, api_key=cfg.OPENCODE_API_KEY, temperature=0)
+    return ChatOpenAI(
+        model=model_id,
+        base_url=cfg.OPENCODE_BASE_URL,
+        api_key=cfg.OPENCODE_API_KEY,
+        temperature=0,
+        timeout=60,       # 网关偶发挂起连接，无超时会无限等待（页面转圈的根因）
+        max_retries=2,
+    )
