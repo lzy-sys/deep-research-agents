@@ -58,8 +58,17 @@ with st.sidebar:
     st.subheader("🧠 长期记忆 (AGENTS.md)")
     st.text(read_memory()[:800])
     if st.button("🗑️ 重置长期记忆"):
-        reset_memory()
-        st.success("已重置")
+        st.session_state.confirm_reset = True
+    if st.session_state.get("confirm_reset"):
+        st.warning("确定清空全部长期记忆？此操作不可恢复。")
+        c1, c2 = st.columns(2)
+        if c1.button("⚠️ 确认清空"):
+            reset_memory()
+            st.session_state.confirm_reset = False
+            st.success("已重置")
+        if c2.button("取消"):
+            st.session_state.confirm_reset = False
+            st.rerun()
     st.divider()
     st.subheader("📄 研究报告")
     reports = list_reports_cached()  # 缓存 30s：侧栏每次 rerun 不再同步请求 API
