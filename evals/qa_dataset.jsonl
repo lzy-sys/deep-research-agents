@@ -1,0 +1,24 @@
+{"id": "lg-01", "question": "LangGraph 的 Send API 怎么实现动态并行派发子任务？", "must_include": ["langgraph__graph-api", "langgraph__workflows-agents"], "keywords": ["Send", "并行", "map-reduce"]}
+{"id": "lg-02", "question": "LangGraph 的 checkpointer 检查点是如何实现状态持久化的？", "must_include": ["langgraph__checkpointers"], "keywords": ["checkpoint", "thread", "持久化"]}
+{"id": "lg-03", "question": "LangGraph 的 interrupt 如何实现人工审批（human-in-the-loop）？", "must_include": ["langgraph__interrupts"], "keywords": ["interrupt", "人工", "审批"]}
+{"id": "lg-04", "question": "LangGraph 里如何在图中嵌套使用子图（subgraph）？", "must_include": ["langgraph__use-subgraphs"], "keywords": ["subgraph", "子图"]}
+{"id": "lg-05", "question": "LangGraph 支持哪些流式输出模式？", "must_include": ["langgraph__streaming"], "keywords": ["stream", "流式", "updates"]}
+{"id": "lg-06", "question": "LangGraph 的 Store 长期记忆怎么跨线程使用？", "must_include": ["langgraph__stores", "langgraph__add-memory"], "keywords": ["store", "长期记忆", "namespace"]}
+{"id": "lg-07", "question": "LangGraph 底层的 Pregel/BSP 执行模型是怎么工作的？", "must_include": ["langgraph__pregel"], "keywords": ["pregel", "super-step", "BSP"]}
+{"id": "lg-08", "question": "LangGraph 多智能体的 supervisor 架构模式是什么？", "must_include": ["langchain__multi-agent", "langgraph__workflows-agents"], "keywords": ["supervisor", "多智能体"]}
+{"id": "da-01", "question": "deepagents 的 create_deep_agent 有哪些参数？", "must_include": ["deepagents__quickstart", "deepagents__overview", "deepagents__customization"], "keywords": ["create_deep_agent", "参数"]}
+{"id": "da-02", "question": "deepagents 怎么定义 subagents 子智能体？", "must_include": ["deepagents__subagents"], "keywords": ["subagents", "task", "子智能体"]}
+{"id": "da-03", "question": "deepagents 的 middleware 中间件机制如何扩展智能体？", "must_include": ["deepagents__customization", "deepagents__tools"], "keywords": ["middleware", "中间件"]}
+{"id": "da-04", "question": "deepagents 的文件系统后端 backend 有哪些可选实现？", "must_include": ["deepagents__backends"], "keywords": ["backend", "文件系统", "filesystem"]}
+{"id": "da-05", "question": "deepagents 的长期记忆 AGENTS.md 机制怎么工作？", "must_include": ["deepagents__memory"], "keywords": ["memory", "AGENTS.md", "长期记忆"]}
+{"id": "da-06", "question": "deepagents 的 skills 技能系统（SKILL.md）如何按需加载？", "must_include": ["deepagents__skills"], "keywords": ["skills", "SKILL.md"]}
+{"id": "lc-01", "question": "LangChain 的 create_agent 怎么创建一个智能体？", "must_include": ["langchain__agents", "langchain__overview"], "keywords": ["create_agent"]}
+{"id": "lc-02", "question": "LangChain 用 @tool 装饰器怎么定义自定义工具？", "must_include": ["langchain__tools"], "keywords": ["@tool", "工具"]}
+{"id": "lc-03", "question": "LangChain 的 with_structured_output 结构化输出怎么用？", "must_include": ["langchain__structured-output"], "keywords": ["structured output", "pydantic"]}
+{"id": "lc-04", "question": "LangChain 有哪些消息类型（SystemMessage/HumanMessage 等）？", "must_include": ["langchain__messages"], "keywords": ["messages", "消息"]}
+{"id": "zm-01", "question": "智谱 GLM 有哪些模型可选？怎么选型？", "must_include": ["cn__guide__start__model-overview", "cn__guide__models__text"], "keywords": ["GLM", "模型", "选型"]}
+{"id": "zm-02", "question": "智谱开放平台的 API Key 怎么获取和鉴权？", "must_include": ["cn__faq__authentication-issues", "cn__guide__start__quick-start"], "keywords": ["API key", "鉴权"]}
+{"id": "zm-03", "question": "GLM 的工具调用（function calling）怎么用？", "must_include": ["cn__guide__capabilities__function-calling"], "keywords": ["function calling", "工具调用"]}
+{"id": "zm-04", "question": "GLM 的结构化输出（JSON mode）怎么开启？", "must_include": ["cn__guide__capabilities__struct-output"], "keywords": ["结构化输出", "json"]}
+{"id": "zm-05", "question": "智谱 API 的速率限制（并发/限流）规则是什么？", "must_include": ["cn__api__rate-limit"], "keywords": ["速率", "限流", "并发"]}
+{"id": "zm-06", "question": "GLM 的流式输出（SSE）怎么实现？", "must_include": ["cn__guide__capabilities__streaming"], "keywords": ["流式", "SSE", "stream"]}
