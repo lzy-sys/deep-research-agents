@@ -17,11 +17,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import httpx
 import streamlit as st
 
-from deep_research.memory.store import read_memory
+from deep_research.memory.store import read_memory, reset_memory
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:18000")
 
 st.set_page_config(page_title="Deep Research Agents", page_icon="🔬", layout="wide")
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def list_reports_cached() -> list | None:
+    try:
+        return httpx.get(f"{API_BASE}/api/reports", timeout=5).json()
+    except Exception:
+        return None
 
 
 def api_post(path: str, payload: dict | None = None, timeout: float = 600) -> httpx.Response:
@@ -54,11 +62,12 @@ with st.sidebar:
         st.success("已重置")
     st.divider()
     st.subheader("📄 研究报告")
-    try:
-        for r in httpx.get(f"{API_BASE}/api/reports", timeout=10).json():
+    reports = list_reports_cached()  # 缓存 30s：侧栏每次 rerun 不再同步请求 API
+    if reports is None:
+        st.error("API 服务未启动\n\n请先运行:\nuv run uvicorn src.deep_research.api.app:app --port 18000")
+    else:
+        for r in reports:
             st.write(f"{r['name']}  ({r['size_kb']} KB)")
-    except Exception as e:
-        st.error(f"API 服务未启动（{e}）\n\n请先运行:\nuv run uvicorn src.deep_research.api.app:app --port 18000")
 
 for role, content in st.session_state.messages:
     with st.chat_message(role):
@@ -90,6 +99,8 @@ def sse_reader(thread_id: str, q: queue.Queue) -> None:
                 elif event.get("type") == "timeout":
                     q.put(("error", "**任务超时**：API 等待事件超时，请重试"))
                     break
+                elif event.get("type") == "ping":
+                    continue  # API 心跳：仅保活连接，UI 本地每秒刷新计时
     except Exception as e:
         q.put(("error", f"**连接 API 失败**：{type(e).__name__}: {e}\n\n请确认 API 服务已启动。"))
 

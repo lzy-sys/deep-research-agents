@@ -34,4 +34,7 @@ def get_model(role: str = "research") -> ChatOpenAI:
         # 禁用 keep-alive 复用：网关空闲期单方面掐断池内连接，长驻进程复用半死连接
         # 会把请求发进黑洞且超时不触发（反复"转圈卡死"的最终根因）
         default_headers={"Connection": "close"},
+        # 关思考模式（实测 0.9s vs 5.1s）：thinking 产生的 reasoning_content 在多轮
+        # 工具调用时必须回传，langchain 会剥掉 → 上游 400 "must be passed back"
+        extra_body=None if cfg.LLM_THINKING else {"thinking": {"type": "disabled"}},
     )

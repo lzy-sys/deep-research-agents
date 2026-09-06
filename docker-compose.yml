@@ -5,6 +5,8 @@ services:
     build: .
     ports:
       - "18000:8000"  # 宿主机 8000 已被 deepsearch-backend 占用，避开
+    cap_add:
+      - SYS_PTRACE  # 诊断用：允许 py-spy 抓线程堆栈
     env_file: .env
     environment:
       # 容器内连宿主机 Ollama（Windows/Mac 用 host.docker.internal，Linux 加 extra_hosts）

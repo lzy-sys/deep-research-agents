@@ -80,12 +80,18 @@ def stream_research(thread_id: str):
         raise HTTPException(404, "任务不存在")
 
     def gen():
+        idle = 0
         while True:
             try:
-                item = run["queue"].get(timeout=300)
+                item = run["queue"].get(timeout=15)
+                idle = 0
             except queue.Empty:
-                yield f"data: {json.dumps({'type': 'timeout'}, ensure_ascii=False)}\n\n"
-                break
+                idle += 15
+                if idle >= 660:  # 11 分钟无任何事件才判超时（LLM 慢≠死，ping 保活）
+                    yield f"data: {json.dumps({'type': 'timeout'}, ensure_ascii=False)}\n\n"
+                    break
+                yield f"data: {json.dumps({'type': 'ping'}, ensure_ascii=False)}\n\n"
+                continue
             if item is None:
                 yield "data: [DONE]\n\n"
                 break

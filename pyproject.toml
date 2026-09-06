@@ -17,6 +17,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.52.4",
     "streamlit>=1.63.0",
+    "openai==2.45.0",
 ]
 
 [build-system]
@@ -30,7 +31,7 @@ packages = ["src/deep_research"]
 testpaths = ["tests"]
 
 [[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+url = "https://pypi.org/simple"
 default = true
 
 [dependency-groups]
