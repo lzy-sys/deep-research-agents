@@ -74,6 +74,24 @@ def _ensure_db() -> None:
         con.close()
 
 
+def version() -> int:
+    """记忆库版本号：每次增删改都递增，供 agent 缓存判断是否需要重建（记忆烘在提示词里）。"""
+    _ensure_db()
+    con = _connect()
+    try:
+        row = con.execute("SELECT value FROM meta WHERE key='mem_version'").fetchone()
+        return int(row["value"]) if row else 0
+    finally:
+        con.close()
+
+
+def _bump_version(con: sqlite3.Connection) -> None:
+    con.execute(
+        "INSERT INTO meta(key, value) VALUES('mem_version', '1') "
+        "ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1"
+    )
+
+
 def add_entry(category: str, content: str) -> tuple[int, str]:
     """新增一条记忆，返回 (条目 id, 附加说明)。容量满时自动淘汰最旧的历史结论。"""
     if category not in CATEGORIES:
@@ -100,6 +118,7 @@ def add_entry(category: str, content: str) -> tuple[int, str]:
             "INSERT INTO memory_entry(category, content, created_at, updated_at) VALUES(?,?,?,?)",
             (category, content, now, now),
         )
+        _bump_version(con)
         con.commit()
         return cur.lastrowid, note
     finally:
@@ -111,6 +130,7 @@ def delete_entry(entry_id: int) -> bool:
     con = _connect()
     try:
         cur = con.execute("DELETE FROM memory_entry WHERE id=?", (entry_id,))
+        _bump_version(con)
         con.commit()
         return cur.rowcount > 0
     finally:
@@ -152,6 +172,7 @@ def reset_memory() -> int:
     try:
         n = con.execute("SELECT COUNT(*) FROM memory_entry").fetchone()[0]
         con.execute("DELETE FROM memory_entry")
+        _bump_version(con)
         con.commit()
         return n
     finally:

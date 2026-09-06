@@ -169,7 +169,7 @@ def sse_reader(thread_id: str, q: queue.Queue) -> None:
 
 
 def run_research(prompt: str):
-    """新研究：创建任务 + SSE 渲染。返回最终内容。"""
+    """新研究：创建任务 + SSE 流式渲染。返回最终内容。"""
     with st.status("创建研究任务…", expanded=True) as status:
         try:
             r = api_post("/api/research", {"topic": prompt}, timeout=30)
@@ -184,18 +184,37 @@ def run_research(prompt: str):
         thread_id = r.json()["thread_id"]
         st.session_state.thread_id = thread_id
         status.write(f"任务已创建: {thread_id}")
+    return _stream_events(thread_id, "子智能体执行中…")
 
+
+def run_followup(prompt: str):
+    """追问：转后台执行 + 复用 SSE 事件链路（心跳/进度/断流保护全生效）。"""
+    with st.status("提交追问…", expanded=True) as status:
+        try:
+            r = api_post("/api/chat", {"thread_id": st.session_state.thread_id, "message": prompt}, timeout=30)
+            if r.status_code == 404:
+                status.update(label="⚠️ 会话不存在", state="error", expanded=True)
+                return "**会话已失效**（该线程没有历史上下文）。请点「🆕 开启新研究」重新开始。"
+            r.raise_for_status()
+        except Exception as e:
+            status.update(label="⚠️ 无法连接 API 服务", state="error", expanded=True)
+            return f"**调用失败**：{type(e).__name__}: {e}"
+    return _stream_events(st.session_state.thread_id, "回答中…")
+
+
+def _stream_events(thread_id: str, label: str):
+    """后台线程读 SSE 推入队列，主循环每秒渲染进度；final/error 终止。"""
     q: queue.Queue = queue.Queue()
     threading.Thread(target=sse_reader, args=(thread_id, q), daemon=True).start()
     start = time.time()
-    with st.status("子智能体执行中…", expanded=True) as status:
+    with st.status(label, expanded=True) as status:
         final_content = None
         while True:
             try:
                 kind, payload = q.get(timeout=1)
             except queue.Empty:
                 elapsed = int(time.time() - start)
-                status.update(label=f"子智能体执行中… 已 {elapsed}s（检索/生成期间无中间事件，非卡死）")
+                status.update(label=f"{label} 已 {elapsed}s（检索/生成期间无中间事件，非卡死）")
                 continue
             if kind == "tool":
                 status.write(f"• {payload}")
@@ -208,20 +227,6 @@ def run_research(prompt: str):
                 break
         status.update(label=f"完成 ✅（用时 {int(time.time() - start)}s）", state="complete", expanded=False)
     return final_content
-
-
-def run_followup(prompt: str):
-    """追问：同 thread 同步调用（API 进程内执行，UI 只等结果）。"""
-    with st.status("回答中…（基于当前研究上下文）", expanded=False) as status:
-        try:
-            r = api_post("/api/chat", {"thread_id": st.session_state.thread_id, "message": prompt})
-            r.raise_for_status()
-            content = r.json()["answer"]
-            status.update(label="完成 ✅", state="complete", expanded=False)
-        except Exception as e:
-            content = f"**调用失败**：{type(e).__name__}: {e}\n\n请确认 API 服务已启动。"
-            status.update(label="⚠️ 调用失败", state="error", expanded=True)
-    return content
 
 
 if prompt := st.chat_input("输入研究主题，或针对当前研究追问…"):

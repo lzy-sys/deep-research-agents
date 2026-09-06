@@ -10,7 +10,7 @@
 - **text2sql 安全闸门**：纯代码校验（仅 SELECT/WITH、禁多语句、强制 LIMIT、SQLite 只读 URI 物理防写），恶意语句 100% 拦截
 - **跨会话长期记忆（SQLite 结构化条目）**：用户偏好与研究结论分条存 `data/memory.sqlite`（上限 50 条，满员自动淘汰最旧结论），Supervisor 通过 `save_memory`/`delete_memory` 工具自主读写，下次会话注入提示词；WebUI 支持逐条查看/删除，旧 AGENTS.md 首次启动自动迁移
 - **双语知识库**：LangChain/LangGraph/DeepAgents 英文官方文档 + 智谱 GLM 中文文档，qwen3-embedding 多语言向量跨语言检索，回答用中文、代码保留英文
-- **分档模型**：research / summarize / report 三档独立配置（OpenAI 兼容网关一键接入），为按档换模型留好接缝
+- **分档模型**：research（主管/RAG/SQL 专家）/ summarize（web-researcher 高频调用）两档独立配置（OpenAI 兼容网关一键接入），为按档换模型留好接缝
 
 ## 架构
 
@@ -45,7 +45,7 @@ uv run python -m src.deep_research.main        # 进入多轮会话（/new /memo
 
 | 变量 | 说明 |
 |---|---|
-| `OPENCODE_API_KEY` / `OPENCODE_BASE_URL` | OpenCode Go 套餐网关（OpenAI 兼容），四档模型默认 deepseek-v4-flash，可在套餐内换 Kimi/GLM 等 |
+| `OPENCODE_API_KEY` / `OPENCODE_BASE_URL` | OpenCode Go 套餐网关（OpenAI 兼容），两档模型默认 deepseek-v4-flash，可在套餐内换 Kimi/GLM 等 |
 | `TAVILY_API_KEY` | tavily.com 免费额度 1000 次/月 |
 | `OLLAMA_BASE_URL` / `EMBEDDING_MODEL` | 本地 Ollama，默认 qwen3-embedding:0.6b（1024 维），embedding 零 API 成本 |
 

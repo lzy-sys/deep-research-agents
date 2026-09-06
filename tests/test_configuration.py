@@ -13,6 +13,6 @@ def test_embedding_dims():
 
 
 def test_model_defaults_present():
-    assert cfg.MODEL_RESEARCH and cfg.MODEL_SUMMARIZE and cfg.MODEL_REPORT
+    assert cfg.MODEL_RESEARCH and cfg.MODEL_SUMMARIZE
     assert cfg.EMBEDDING_MODEL
     assert cfg.RAG_TOP_K >= 1 and cfg.CHUNK_SIZE > cfg.CHUNK_OVERLAP

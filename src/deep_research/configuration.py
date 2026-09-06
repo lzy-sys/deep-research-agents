@@ -22,8 +22,7 @@ LLM_EXTRA_BODY = None if LLM_THINKING else {"thinking": {"type": "disabled"}}  #
 OPENCODE_BASE_URL = os.getenv("OPENCODE_BASE_URL", "")
 OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")
 MODEL_RESEARCH = os.getenv("MODEL_RESEARCH", "deepseek-v4-flash")
-MODEL_SUMMARIZE = os.getenv("MODEL_SUMMARIZE", MODEL_RESEARCH)
-MODEL_REPORT = os.getenv("MODEL_REPORT", MODEL_RESEARCH)
+MODEL_SUMMARIZE = os.getenv("MODEL_SUMMARIZE", MODEL_RESEARCH)  # 高频子任务档：web-researcher 每轮调研调用
 
 # ===== 搜索 =====
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")

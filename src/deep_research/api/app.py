@@ -4,13 +4,14 @@
 """
 import json
 import queue
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from pydantic import BaseModel
 
 from deep_research import configuration as cfg
@@ -20,8 +21,18 @@ from deep_research.memory import store
 
 app = FastAPI(title="Deep Research Agents", version="0.1.0")
 
-CHECKPOINTER = InMemorySaver()  # 进程级共享：同一 thread_id 的研究与会话上下文互通
+_CHECKPOINTER: SqliteSaver | None = None
 RUN_STALE_SECONDS = 1800  # 已结束的任务记录保留 30 分钟，过期清理防 RUNS 无限增长
+
+
+def get_checkpointer() -> SqliteSaver:
+    """会话状态持久化到 SQLite（data/ 卷挂载）：服务重启后追问上下文不丢。"""
+    global _CHECKPOINTER
+    if _CHECKPOINTER is None:
+        cfg.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(cfg.DATA_DIR / "checkpoints.sqlite", check_same_thread=False)
+        _CHECKPOINTER = SqliteSaver(conn)
+    return _CHECKPOINTER
 
 
 @dataclass
@@ -83,7 +94,7 @@ def start_research(body: TopicIn) -> dict:
     thread_id = new_thread_id()
     run = Run(queue=queue.Queue(), topic=body.topic)
     RUNS[thread_id] = run
-    agent = build(CHECKPOINTER)
+    agent = build(get_checkpointer())
     config = {"configurable": {"thread_id": thread_id}}
     threading.Thread(target=_drain_events, args=(agent, config, run), daemon=True).start()
     return {"thread_id": thread_id, "status": "started"}
@@ -120,16 +131,19 @@ def stream_research(thread_id: str):
 
 @app.post("/api/chat")
 def chat(body: ChatIn) -> dict:
-    """同 thread 同步追问：checkpointer 延续上下文，直接返回最终回答。"""
-    if body.thread_id not in RUNS:
-        raise HTTPException(404, "会话不存在")
-    agent = build(CHECKPOINTER)
+    """同 thread 追问：转后台执行，复用 /stream 事件链路（心跳/进度/断流保护全生效）。
+
+    会话存在性以 checkpointer 为准（历史消息在即有效），不受 RUNS 过期清理影响。
+    """
+    agent = build(get_checkpointer())
     config = {"configurable": {"thread_id": body.thread_id}}
-    agent.invoke({"messages": [("user", body.message)]}, config)
-    answer = final_content(agent.get_state(config).values.get("messages", []))
-    if not answer:
-        raise HTTPException(502, "没有得到回复")
-    return {"thread_id": body.thread_id, "answer": answer}
+    if not agent.get_state(config).values.get("messages"):
+        raise HTTPException(404, "会话不存在（该线程没有历史上下文）")
+    _purge_stale_runs()
+    run = Run(queue=queue.Queue(), topic=body.message)
+    RUNS[body.thread_id] = run
+    threading.Thread(target=_drain_events, args=(agent, config, run), daemon=True).start()
+    return {"thread_id": body.thread_id, "status": "started"}
 
 
 @app.get("/api/memory")

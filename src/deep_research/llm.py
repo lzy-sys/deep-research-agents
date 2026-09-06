@@ -1,4 +1,4 @@
-"""模型工厂：按档取模型（research/summarize/report），统一走 OpenCode 网关。"""
+"""模型工厂：按档取模型（research/summarize），统一走 OpenCode 网关。"""
 from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
@@ -8,11 +8,10 @@ from deep_research import configuration as cfg
 
 @lru_cache
 def get_model(role: str = "research") -> ChatOpenAI:
-    """role: research(拆题/判断) | summarize(高频摘要) | report(最终报告)"""
+    """role: research(主管/RAG/SQL 专家) | summarize(高频调研子任务)"""
     model_id = {
         "research": cfg.MODEL_RESEARCH,
         "summarize": cfg.MODEL_SUMMARIZE,
-        "report": cfg.MODEL_REPORT,
     }[role]
     if cfg.LLM_PROVIDER == "ollama":
         # 本地 Ollama 的 OpenAI 兼容端点：零 API 成本；冷启动加载模型较慢，超时放宽

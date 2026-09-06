@@ -3,7 +3,11 @@ import sqlite3
 
 import pytest
 
+from deep_research import configuration as cfg
 from deep_research.tools.sql_tools import _connect, check_sql, run_sql
+
+# 真实查询/物理防线用例依赖豆瓣库，CI（未建库）自动跳过
+_needs_db = pytest.mark.skipif(not cfg.DB_PATH.exists(), reason="豆瓣库未构建，先跑 scripts/setup_db.py")
 
 BAD_SQL = [
     "DROP TABLE Album",
@@ -45,6 +49,7 @@ def test_limit_autocomplete_and_preserve():
     assert out.upper().count("LIMIT") == 1  # 已有限制不重复追加
 
 
+@_needs_db
 def test_run_sql_returns_markdown_table():
     out = run_sql.invoke({"sql": "SELECT title, rating FROM movies ORDER BY total_ratings DESC LIMIT 2"})
     assert out.startswith("|"), "应输出 Markdown 表格"
@@ -56,6 +61,7 @@ def test_run_sql_blocked_path():
     assert out.startswith("SQL 被安全闸门拒绝")
 
 
+@_needs_db
 def test_readonly_physical_barrier():
     con = _connect()
     with pytest.raises(sqlite3.OperationalError):  # 只读 URI 下写操作物理失败
