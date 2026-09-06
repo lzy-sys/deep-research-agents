@@ -8,7 +8,7 @@
 - **deepagents 声明式多智能体**：主智能体通过内置 `task` 工具并行派发 subagent，各子智能体独立上下文、只回传压缩结论——上下文不爆炸
 - **Agentic RAG**：知识库专家自主决定检索关键词、相关度不足自动换词重查（最多 3 次），检索不到明确说"没有"并建议转交 web 调研，答案强制标注来源
 - **text2sql 安全闸门**：纯代码校验（仅 SELECT/WITH、禁多语句、强制 LIMIT、SQLite 只读 URI 物理防写），恶意语句 100% 拦截
-- **跨会话长期记忆**：deepagents `MemoryMiddleware` + `AGENTS.md`——智能体在会话中主动把用户偏好与研究结论写入记忆文件，重启后自动生效，`/memory` 可查看可重置
+- **跨会话长期记忆（SQLite 结构化条目）**：用户偏好与研究结论分条存 `data/memory.sqlite`（上限 50 条，满员自动淘汰最旧结论），Supervisor 通过 `save_memory`/`delete_memory` 工具自主读写，下次会话注入提示词；WebUI 支持逐条查看/删除，旧 AGENTS.md 首次启动自动迁移
 - **双语知识库**：LangChain/LangGraph/DeepAgents 英文官方文档 + 智谱 GLM 中文文档，qwen3-embedding 多语言向量跨语言检索，回答用中文、代码保留英文
 - **分档模型**：research / summarize / report 三档独立配置（OpenAI 兼容网关一键接入），为按档换模型留好接缝
 
@@ -26,7 +26,7 @@ CLI (rich 流式) ──► deepagents 主智能体（Supervisor）
                      ▼
         write_file → reports/日期_主题.md
                      ▼
-        edit_file → AGENTS.md（长期记忆自更新）
+        save_memory → memory.sqlite（长期记忆分条存取）
 ```
 
 ## 快速开始
@@ -61,7 +61,7 @@ src/deep_research/
 ├── sanity_check.py     # 五项连通性自检
 ├── agents/             # supervisor + 3 个声明式 subagent
 ├── tools/              # search(Tavily) / retrieval(FAISS) / sql_tools(只读闸门)
-└── memory/             # AGENTS.md 长期记忆读写
+└── memory/             # SQLite 长期记忆：store(存储/迁移/容量) + tools(supervisor 读写工具)
 scripts/
 ├── ingest.py           # 语料抓取(llms.txt)→清洗→切块→FAISS 入库
 └── setup_db.py         # 豆瓣电影数据下载建库校验
@@ -74,13 +74,13 @@ data/                   # 知识库语料 / FAISS 索引 / 豆瓣电影库
 1. **chromadb 1.5.9 → FAISS**：chromadb rust 版 HNSW 段在 Windows 上跨进程加载必崩（建库进程内可查、新进程 `Error loading hnsw index`），连换三处写法复现同一根因，弃用。改用 FAISS 引擎 + `faiss.serialize_index` 序列化。
 2. **faiss C++ 文件 IO 的中文路径 bug**：`faiss.write_index` 底层 `fopen` 收到 UTF-8 字节、Windows 按 GBK 解析，含中文的项目路径直接"路径不存在"。修复：索引文件读写全部走 Python 侧（serialize_index 字节 + pickle 元数据）。
 3. **changelog 页是检索黑洞**：发布日志堆满功能关键词，把真正的文档挤出 top-k。入库时按 URL 排除，并过滤站点导航 JSON 块（`"href"`+`"title"` 签名 + 标点密度），语料从 14,453 块瘦身到 7,568 块，检索命中全正。
-4. **记忆为什么用 AGENTS.md 而不是自建 Store**：deepagents 原生 MemoryMiddleware 把记忆文件注入每次运行的系统上下文，智能体用文件工具自主增改——跨会话持久化零自研代码，且人类可直接查看/编辑。
+4. **长期记忆 v1 文件方案 → v2 SQLite 条目**：v1 直接用 AGENTS.md（deepagents 文件工具读写），零自研但无法逐条管理、容量不可控、前端直读文件有并发冲突。v2 改为结构化条目库（data/memory.sqlite）：Supervisor 挂 `save_memory`/`delete_memory` 自定义工具读写，条目带 id 注入提示词便于精确清理，容量 50 条自动淘汰最旧结论；旧文件首次建库自动迁移（meta 表打标防重复导入）。
 5. **报告日期注入**：LLM 会臆造日期，当前日期必须由系统注入提示词。
 
 ## 部署（Docker）
 
 ```bash
-docker compose up -d      # api :18000 + webui :8501（.env 自动注入，data/reports/AGENTS.md 卷挂载）
+docker compose up -d      # api :18000 + webui :8501（.env 自动注入，data/reports 卷挂载，记忆库随 data 持久化）
 ```
 
 - embedding 走宿主机 Ollama（容器内自动配置 `host.docker.internal`），LLM 走网关，密钥不进镜像
@@ -90,17 +90,18 @@ docker compose up -d      # api :18000 + webui :8501（.env 自动注入，data/
 ## 测试与评测
 
 ```bash
-uv run pytest -q                            # 单元测试（27 项 pytest 用例，秒级，无网络依赖）
+uv run pytest -q                            # 单元测试（32 项 pytest 用例，秒级，无网络依赖）
 uv run python evals/eval_retrieval.py       # 检索评测（24 条 QA，输出量化报告）
 ```
 
-- **单元测试**：SQL 安全闸门拦截矩阵（9 类恶意语句）、LIMIT 自动补全、只读 URI 物理防写、语料垃圾块过滤、AGENTS.md 记忆读写、配置派生、FAISS 检索冒烟（未建库自动跳过）
+- **单元测试**：SQL 安全闸门拦截矩阵（9 类恶意语句）、LIMIT 自动补全、只读 URI 物理防写、语料垃圾块过滤、记忆库增删查/容量淘汰/旧文件迁移、配置派生、FAISS 检索冒烟（未建库自动跳过）
 - **检索评测集**（`evals/qa_dataset.jsonl`，24 条）：覆盖 langgraph / deepagents / langchain / bigmodel-zh 四板块，指标 **hit@5** 与 **MRR**，逐条明细写入 `reports/eval_retrieval.md`，命中率 <80% 退出码非零（可挂 CI）
 - 当前基线：**hit@5 = 87.5%（21/24），MRR = 0.719**；英文框架板块 100%，中文板块（bigmodel-zh）50%，是下一步检索优化的明确靶子
 
 ## Roadmap
 
-- [ ] FastAPI 服务化（SSE 流式）+ Web UI（节点执行进度可视化）
+- [x] FastAPI 服务化（SSE 流式）+ Web UI（节点执行进度可视化）
+- [x] 长期记忆升级 SQLite 结构化条目（容量上限 + 逐条管理）
 - [ ] RAGAS 量化评估（faithfulness / answer_relevancy / context_precision / context_recall）
 - [ ] 成本/Token 统计面板、失败降级链（DeepSeek→GLM→Kimi 调度）
 - [ ] 单 agent 基线对比实验（多智能体 vs 单 agent 的质量/成本/耗时数据）

@@ -12,6 +12,7 @@ KB_DIR = DATA_DIR / "knowledge_base"
 FAISS_DIR = DATA_DIR / "vector_store"  # FAISS 索引落盘目录（旧名 CHROMA_DIR 已废弃，引擎早已换 FAISS）
 REPORTS_DIR = ROOT / "reports"
 DB_PATH = DATA_DIR / "douban.sqlite"
+MEMORY_DB_PATH = DATA_DIR / "memory.sqlite"  # 长期记忆库（结构化条目，替代早期 AGENTS.md 文件方案）
 
 # ===== LLM：OpenCode Go 网关 =====
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "opencode")  # opencode（网关）| ollama（本地）

@@ -33,6 +33,13 @@ def api_post(path: str, payload: dict | None = None, timeout: float = 600) -> ht
     return httpx.post(f"{API_BASE}{path}", json=payload, timeout=timeout)
 
 
+def api_delete(path: str, timeout: float = 10) -> bool:
+    try:
+        return httpx.delete(f"{API_BASE}{path}", timeout=timeout).is_success
+    except Exception:
+        return False
+
+
 @st.cache_data(ttl=30, show_spinner=False)
 def list_reports_cached() -> list | None:
     try:
@@ -62,9 +69,26 @@ with st.sidebar:
         st.rerun()
     st.caption("任务在 API 服务进程执行，刷新页面不会中断；页面仅展示结果")
     st.divider()
-    st.subheader("🧠 长期记忆 (AGENTS.md)")
+    st.subheader("🧠 长期记忆（数据库）")
     mem = api_get("/api/memory")
-    st.text(mem["content"][:800] if mem else "（API 未启动，无法读取）")
+    if mem is None:
+        st.caption("（API 未启动，无法读取）")
+    elif not mem.get("entries"):
+        st.caption("（暂无记忆条目）")
+    else:
+        for cat in ("偏好", "历史研究结论"):
+            items = [e for e in mem["entries"] if e["category"] == cat]
+            if not items:
+                continue
+            st.markdown(f"**{cat}**（{len(items)} 条）")
+            for e in items:
+                row = st.columns([0.92, 0.08])
+                row[0].markdown(f"- [{e['id']}] {e['content'][:90]}")
+                if row[1].button("删", key=f"del-mem-{e['id']}", help="删除该条记忆"):
+                    if api_delete(f"/api/memory/{e['id']}"):
+                        st.rerun()
+                    else:
+                        st.error("删除失败")
     if st.button("🗑️ 重置长期记忆"):
         st.session_state.confirm_reset = True
     if st.session_state.get("confirm_reset"):

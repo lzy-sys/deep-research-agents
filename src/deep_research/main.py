@@ -11,14 +11,14 @@ from rich.panel import Panel
 from deep_research import configuration as cfg
 from deep_research.events import final_content, iter_tool_labels, new_thread_id
 from deep_research.graph import build
-from deep_research.memory.store import MEMORY_PATH, read_memory, reset_memory
+from deep_research.memory import store
 
 console = Console()
 
 HELP = """[bold]命令[/]
   直接输入文字   新研究主题 / 针对当前研究的追问
   /new           开启新研究（新会话线程）
-  /memory        查看长期记忆 (AGENTS.md)
+  /memory        查看长期记忆（数据库条目）
   /memory/reset  重置长期记忆
   /reports       列出已生成的报告
   /quit          退出"""
@@ -57,7 +57,7 @@ def main() -> int:
         run_turn(agent, config, " ".join(sys.argv[1:]))
         return 0
 
-    console.print(f"[dim]thread: {config['configurable']['thread_id']} | 记忆: {MEMORY_PATH.name}[/]\n{HELP}\n")
+    console.print(f"[dim]thread: {config['configurable']['thread_id']} | 记忆: {cfg.MEMORY_DB_PATH.name}[/]\n{HELP}\n")
     while True:
         try:
             user = console.input("[bold cyan]你> [/]").strip()
@@ -72,12 +72,14 @@ def main() -> int:
             console.print(f"[dim]新会话: {config['configurable']['thread_id']}[/]")
             continue
         if user == "/memory":
-            console.print(Panel(Markdown(read_memory()), title="长期记忆"))
+            entries = store.list_entries()
+            body = store.format_memory() if entries else "（暂无记忆条目）"
+            console.print(Panel(Markdown(body), title=f"长期记忆（{len(entries)} 条）"))
             continue
         if user == "/memory/reset":
-            reset_memory()
+            removed = store.reset_memory()
             agent = build()  # 重建使新记忆生效
-            console.print("[dim]记忆已重置[/]")
+            console.print(f"[dim]记忆已重置（清除 {removed} 条）[/]")
             continue
         if user == "/reports":
             show_reports()

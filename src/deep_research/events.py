@@ -10,6 +10,8 @@ TOOL_LABELS = {
     "write_todos": lambda a: "更新任务清单",
     "write_file": lambda a: f"写文件 → {a.get('path', a.get('file_path', ''))}",
     "edit_file": lambda a: f"编辑文件 → {a.get('path', a.get('file_path', ''))}",
+    "save_memory": lambda a: f"记忆保存（{a.get('category', '?')}）",
+    "delete_memory": lambda a: f"记忆删除 #{a.get('memory_id', '?')}",
 }
 
 

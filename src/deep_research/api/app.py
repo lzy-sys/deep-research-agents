@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from deep_research import configuration as cfg
 from deep_research.events import final_content, iter_tool_labels, new_thread_id
 from deep_research.graph import build
-from deep_research.memory.store import read_memory, reset_memory
+from deep_research.memory import store
 
 app = FastAPI(title="Deep Research Agents", version="0.1.0")
 
@@ -134,14 +134,22 @@ def chat(body: ChatIn) -> dict:
 
 @app.get("/api/memory")
 def get_memory() -> dict:
-    """读取长期记忆（UI 不直接碰文件，避免与 API 进程的写入并发冲突）。"""
-    return {"content": read_memory()}
+    """长期记忆条目（SQLite 结构化存储），UI 逐条展示与删除。"""
+    entries = store.list_entries()
+    return {"entries": entries, "total": len(entries)}
+
+
+@app.delete("/api/memory/{entry_id}")
+def remove_memory(entry_id: int) -> dict:
+    if not store.delete_entry(entry_id):
+        raise HTTPException(404, "条目不存在")
+    return {"status": "deleted", "id": entry_id}
 
 
 @app.post("/api/memory/reset")
 def memory_reset() -> dict:
-    reset_memory()
-    return {"status": "reset"}
+    removed = store.reset_memory()
+    return {"status": "reset", "removed": removed}
 
 
 @app.get("/api/reports")

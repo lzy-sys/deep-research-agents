@@ -1,1 +1,1 @@
-"""记忆模块：AGENTS.md 作为跨会话长期记忆（deepagents MemoryMiddleware 原生支持）。"""
+"""记忆模块：SQLite 结构化长期记忆（store.py 存储 + tools.py 提供给 supervisor 的读写工具）。"""

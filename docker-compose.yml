@@ -12,9 +12,8 @@ services:
       # 容器内连宿主机 Ollama（Windows/Mac 用 host.docker.internal，Linux 加 extra_hosts）
       OLLAMA_BASE_URL: http://host.docker.internal:11434
     volumes:
-      - ./data:/app/data          # FAISS 索引 + SQLite 分析库
+      - ./data:/app/data          # FAISS 索引 + SQLite 分析库 + 记忆库 memory.sqlite
       - ./reports:/app/reports    # 研究报告落盘
-      - ./AGENTS.md:/app/AGENTS.md  # 长期记忆文件
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: uvicorn src.deep_research.api.app:app --host 0.0.0.0 --port 8000
@@ -37,7 +36,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./reports:/app/reports
-      - ./AGENTS.md:/app/AGENTS.md
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
