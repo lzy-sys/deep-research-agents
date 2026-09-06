@@ -31,4 +31,7 @@ def get_model(role: str = "research") -> ChatOpenAI:
         # 强制非流式：网关晚高峰流式吞吐会塌到 ~18 token/s（200 字拖 60s+），
         # 涓涓细流让读超时永远不触发；非流式实测 2s 级整体返回，超时保护才能生效
         disable_streaming=True,
+        # 禁用 keep-alive 复用：网关空闲期单方面掐断池内连接，长驻进程复用半死连接
+        # 会把请求发进黑洞且超时不触发（反复"转圈卡死"的最终根因）
+        default_headers={"Connection": "close"},
     )
