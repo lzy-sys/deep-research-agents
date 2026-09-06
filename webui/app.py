@@ -76,6 +76,7 @@ for role, content in st.session_state.messages:
 
 def sse_reader(thread_id: str, q: queue.Queue) -> None:
     """后台线程：读 API 的 SSE 事件流，推入队列（UI 每秒轮询渲染心跳）。"""
+    terminal = False
     try:
         with httpx.stream("GET", f"{API_BASE}/api/research/{thread_id}/stream", timeout=660) as s:
             for line in s.iter_lines():
@@ -83,6 +84,7 @@ def sse_reader(thread_id: str, q: queue.Queue) -> None:
                     continue
                 payload = line[5:].strip()
                 if payload == "[DONE]":
+                    terminal = True
                     break
                 try:
                     event = json.loads(payload)
@@ -92,17 +94,23 @@ def sse_reader(thread_id: str, q: queue.Queue) -> None:
                     q.put(("tool", event["label"]))
                 elif event.get("type") == "final":
                     q.put(("final", event["content"]))
+                    terminal = True
                     break
                 elif event.get("type") == "error":
                     q.put(("error", f"**任务失败**：{event['content']}"))
+                    terminal = True
                     break
                 elif event.get("type") == "timeout":
                     q.put(("error", "**任务超时**：API 等待事件超时，请重试"))
+                    terminal = True
                     break
                 elif event.get("type") == "ping":
                     continue  # API 心跳：仅保活连接，UI 本地每秒刷新计时
     except Exception as e:
         q.put(("error", f"**连接 API 失败**：{type(e).__name__}: {e}\n\n请确认 API 服务已启动。"))
+        return
+    if not terminal:  # 流被静默掐断（如服务重启）：必须终止 UI 循环，否则永远转圈
+        q.put(("error", "**连接中断**：事件流意外断开（任务可能仍在服务端执行）。请点「开启新研究」重试。"))
 
 
 def run_research(prompt: str):
