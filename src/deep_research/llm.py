@@ -21,4 +21,7 @@ def get_model(role: str = "research") -> ChatOpenAI:
         temperature=0,
         timeout=60,       # 网关偶发挂起连接，无超时会无限等待（页面转圈的根因）
         max_retries=2,
+        # 强制非流式：网关晚高峰流式吞吐会塌到 ~18 token/s（200 字拖 60s+），
+        # 涓涓细流让读超时永远不触发；非流式实测 2s 级整体返回，超时保护才能生效
+        disable_streaming=True,
     )
