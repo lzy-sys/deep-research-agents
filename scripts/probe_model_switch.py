@@ -64,7 +64,7 @@ try:
         messages=[{"role": "user", "content": "帮我查一下《肖申克的救赎》的豆瓣评分"}],
         tools=TOOLS,
         temperature=0,
-        **({"extra_body": best} if False else {}),
+        extra_body=best or None,
     )
     dt = time.time() - t
     calls = r.choices[0].message.tool_calls

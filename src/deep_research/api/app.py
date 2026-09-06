@@ -5,22 +5,36 @@
 import json
 import queue
 import threading
-import uuid
-from pathlib import Path
+import time
+from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel
 
 from deep_research import configuration as cfg
+from deep_research.events import final_content, iter_tool_labels, new_thread_id
 from deep_research.graph import build
-from deep_research.main import TOOL_LABELS
+from deep_research.memory.store import read_memory, reset_memory
 
 app = FastAPI(title="Deep Research Agents", version="0.1.0")
 
 CHECKPOINTER = InMemorySaver()  # 进程级共享：同一 thread_id 的研究与会话上下文互通
-RUNS: dict[str, dict] = {}  # thread_id -> {"queue": Queue, "done": bool}
+RUN_STALE_SECONDS = 1800  # 已结束的任务记录保留 30 分钟，过期清理防 RUNS 无限增长
+
+
+@dataclass
+class Run:
+    """一次研究任务：事件队列 + 主题 + 生命周期标记。"""
+
+    queue: queue.Queue
+    topic: str
+    done: bool = False
+    done_at: float | None = None  # 图执行结束时间，用于过期清理
+
+
+RUNS: dict[str, Run] = {}
 
 
 class TopicIn(BaseModel):
@@ -32,28 +46,29 @@ class ChatIn(BaseModel):
     message: str
 
 
-def _drain_events(agent, config: dict, q: queue.Queue) -> None:
+def _purge_stale_runs() -> None:
+    now = time.time()
+    for tid in [t for t, r in RUNS.items() if r.done_at and now - r.done_at > RUN_STALE_SECONDS]:
+        del RUNS[tid]
+
+
+def _drain_events(agent, config: dict, run: Run) -> None:
     """跑一轮研究，节点事件与最终回复推入队列；结束时推 None 哨兵。"""
     try:
-        for chunk in agent.stream({"messages": [("user", config["topic"])]}, config, stream_mode="updates"):
+        for chunk in agent.stream({"messages": [("user", run.topic)]}, config, stream_mode="updates"):
             for node, update in chunk.items():
                 if node != "model":
                     continue
-                for m in update.get("messages", []):
-                    for tc in getattr(m, "tool_calls", None) or []:
-                        label = TOOL_LABELS.get(tc.get("name"), lambda a: tc.get("name"))(tc.get("args", {}))
-                        q.put({"type": "tool", "label": label})
-        state = agent.get_state(config)
-        final = next(
-            (m for m in reversed(state.values.get("messages", [])) if getattr(m, "type", "") == "ai" and m.content),
-            None,
+                for label in iter_tool_labels(update):
+                    run.queue.put({"type": "tool", "label": label})
+        run.queue.put(
+            {"type": "final", "content": final_content(agent.get_state(config).values.get("messages", []))}
         )
-        content = final.content if final and isinstance(final.content, str) else ""
-        q.put({"type": "final", "content": content})
     except Exception as e:
-        q.put({"type": "error", "content": f"{type(e).__name__}: {e}"})
+        run.queue.put({"type": "error", "content": f"{type(e).__name__}: {e}"})
     finally:
-        q.put(None)
+        run.done_at = time.time()
+        run.queue.put(None)
 
 
 @app.get("/health")
@@ -64,11 +79,13 @@ def health() -> dict:
 @app.post("/api/research")
 def start_research(body: TopicIn) -> dict:
     """创建研究任务：立即返回 thread_id，事件通过 /stream 获取。"""
-    thread_id = f"r-{uuid.uuid4().hex[:8]}"
-    RUNS[thread_id] = {"queue": queue.Queue(), "done": False}
+    _purge_stale_runs()
+    thread_id = new_thread_id()
+    run = Run(queue=queue.Queue(), topic=body.topic)
+    RUNS[thread_id] = run
     agent = build(CHECKPOINTER)
-    config = {"configurable": {"thread_id": thread_id}, "topic": body.topic}
-    threading.Thread(target=_drain_events, args=(agent, config, RUNS[thread_id]["queue"]), daemon=True).start()
+    config = {"configurable": {"thread_id": thread_id}}
+    threading.Thread(target=_drain_events, args=(agent, config, run), daemon=True).start()
     return {"thread_id": thread_id, "status": "started"}
 
 
@@ -83,11 +100,11 @@ def stream_research(thread_id: str):
         idle = 0
         while True:
             try:
-                item = run["queue"].get(timeout=15)
+                item = run.queue.get(timeout=15)
                 idle = 0
             except queue.Empty:
                 idle += 15
-                if idle >= 660:  # 11 分钟无任何事件才判超时（LLM 慢≠死，ping 保活）
+                if idle >= cfg.STREAM_IDLE_TIMEOUT:  # 长时间无事件才判超时（LLM 慢≠死，ping 保活）
                     yield f"data: {json.dumps({'type': 'timeout'}, ensure_ascii=False)}\n\n"
                     break
                 yield f"data: {json.dumps({'type': 'ping'}, ensure_ascii=False)}\n\n"
@@ -96,7 +113,7 @@ def stream_research(thread_id: str):
                 yield "data: [DONE]\n\n"
                 break
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-        run["done"] = True
+        run.done = True
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
@@ -109,15 +126,22 @@ def chat(body: ChatIn) -> dict:
     agent = build(CHECKPOINTER)
     config = {"configurable": {"thread_id": body.thread_id}}
     agent.invoke({"messages": [("user", body.message)]}, config)
-    state = agent.get_state(config)
-    final = next(
-        (m for m in reversed(state.values.get("messages", [])) if getattr(m, "type", "") == "ai" and m.content),
-        None,
-    )
-    if final is None:
+    answer = final_content(agent.get_state(config).values.get("messages", []))
+    if not answer:
         raise HTTPException(502, "没有得到回复")
-    content = final.content if isinstance(final.content, str) else ""
-    return {"thread_id": body.thread_id, "answer": content}
+    return {"thread_id": body.thread_id, "answer": answer}
+
+
+@app.get("/api/memory")
+def get_memory() -> dict:
+    """读取长期记忆（UI 不直接碰文件，避免与 API 进程的写入并发冲突）。"""
+    return {"content": read_memory()}
+
+
+@app.post("/api/memory/reset")
+def memory_reset() -> dict:
+    reset_memory()
+    return {"status": "reset"}
 
 
 @app.get("/api/reports")
@@ -136,3 +160,14 @@ def get_report(name: str) -> dict:
     if not path.is_file():
         raise HTTPException(404, "报告不存在")
     return {"name": name, "content": path.read_text(encoding="utf-8")}
+
+
+@app.get("/api/reports/{name}/raw")
+def download_report(name: str) -> FileResponse:
+    """Markdown 原文件下载。"""
+    if "/" in name or ".." in name:
+        raise HTTPException(400, "非法文件名")
+    path = cfg.REPORTS_DIR / name
+    if not path.is_file():
+        raise HTTPException(404, "报告不存在")
+    return FileResponse(path, filename=name, media_type="text/markdown")

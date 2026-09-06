@@ -3,13 +3,13 @@
 用法: uv run python -m src.deep_research.main
 """
 import sys
-from uuid import uuid4
 
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
 from deep_research import configuration as cfg
+from deep_research.events import final_content, iter_tool_labels, new_thread_id
 from deep_research.graph import build
 from deep_research.memory.store import MEMORY_PATH, read_memory, reset_memory
 
@@ -22,17 +22,6 @@ HELP = """[bold]命令[/]
   /memory/reset  重置长期记忆
   /reports       列出已生成的报告
   /quit          退出"""
-
-TOOL_LABELS = {
-    "task": lambda a: f"派发 → {a.get('subagent_type', '?')}",
-    "web_search": lambda a: f"web 搜索 → {a.get('query', '')}",
-    "web_search_deep": lambda a: f"深搜 → {a.get('query', '')}",
-    "retrieve_docs": lambda a: f"知识库检索 → {a.get('question', '')}",
-    "run_sql": lambda a: f"SQL → {str(a.get('sql', ''))[:80]}",
-    "write_todos": lambda a: "更新任务清单",
-    "write_file": lambda a: f"写文件 → {a.get('path', a.get('file_path', ''))}",
-    "edit_file": lambda a: f"编辑文件 → {a.get('path', a.get('file_path', ''))}",
-}
 
 
 def show_reports() -> None:
@@ -50,26 +39,19 @@ def run_turn(agent, config: dict, user_input: str) -> None:
             for node, update in chunk.items():
                 if node != "model":
                     continue
-                for m in update.get("messages", []):
-                    for tc in getattr(m, "tool_calls", None) or []:
-                        label = TOOL_LABELS.get(tc.get("name"), lambda a: tc.get("name"))
-                        console.print(f"  [magenta]•[/] {label(tc.get('args', {}))}")
-    state = agent.get_state(config)
-    messages = state.values.get("messages", [])
-    final = next((m for m in reversed(messages) if getattr(m, "type", "") == "ai" and m.content), None)
-    if final is None:
+                for label in iter_tool_labels(update):
+                    console.print(f"  [magenta]•[/] {label}")
+    content = final_content(agent.get_state(config).values.get("messages", []))
+    if not content:
         console.print("[red](没有得到回复)[/]")
         return
-    content = final.content if isinstance(final.content, str) else "\n".join(
-        p.get("text", "") for p in final.content if isinstance(p, dict)
-    )
     console.print(Panel(Markdown(content), title="回复", border_style="green"))
 
 
 def main() -> int:
     console.print(Panel("深度研究多智能体系统\nsupervisor + web-researcher / rag-expert / sql-expert", title="Deep Research"))
     agent = build()
-    config = {"configurable": {"thread_id": f"r-{uuid4().hex[:8]}"}}
+    config = {"configurable": {"thread_id": new_thread_id()}}
 
     if len(sys.argv) > 1:  # 非交互模式：命令行直接给研究主题
         run_turn(agent, config, " ".join(sys.argv[1:]))
@@ -86,7 +68,7 @@ def main() -> int:
         if user == "/quit":
             break
         if user == "/new":
-            config = {"configurable": {"thread_id": f"r-{uuid4().hex[:8]}"}}
+            config = {"configurable": {"thread_id": new_thread_id()}}
             console.print(f"[dim]新会话: {config['configurable']['thread_id']}[/]")
             continue
         if user == "/memory":

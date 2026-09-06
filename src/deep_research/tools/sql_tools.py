@@ -32,13 +32,15 @@ def check_sql(sql: str) -> tuple[str, str | None]:
 def get_schema_summary() -> str:
     """动态读取库表结构生成 schema 摘要，注入 sql_expert 的系统提示词（换库自动适配）。"""
     con = _connect()
-    rows = con.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
-    parts = []
-    for (t,) in rows:
-        cols = [f"{r[1]}({r[2]})" for r in con.execute(f"PRAGMA table_info({t})")]
-        parts.append(f"{t}: {', '.join(cols)}")
-    con.close()
-    return "\n".join(parts)
+    try:
+        rows = con.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        parts = []
+        for (t,) in rows:
+            cols = [f"{r[1]}({r[2]})" for r in con.execute(f"PRAGMA table_info({t})")]
+            parts.append(f"{t}: {', '.join(cols)}")
+        return "\n".join(parts)
+    finally:
+        con.close()
 
 
 def _connect() -> sqlite3.Connection:

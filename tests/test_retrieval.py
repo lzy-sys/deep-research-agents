@@ -2,9 +2,10 @@
 import pytest
 
 from deep_research import configuration as cfg
+from deep_research.tools.retrieval import INDEX_FILE
 
 pytestmark = pytest.mark.skipif(
-    not (cfg.CHROMA_DIR / "index.faiss.bin").exists(), reason="知识库未构建，先跑 scripts/ingest.py"
+    not (cfg.FAISS_DIR / INDEX_FILE).exists(), reason="知识库未构建，先跑 scripts/ingest.py"
 )
 
 

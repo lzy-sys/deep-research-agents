@@ -90,7 +90,7 @@ docker compose up -d      # api :18000 + webui :8501（.env 自动注入，data/
 ## 测试与评测
 
 ```bash
-uv run pytest -q                            # 单元测试（27 个，秒级，无网络依赖）
+uv run pytest -q                            # 单元测试（27 项 pytest 用例，秒级，无网络依赖）
 uv run python evals/eval_retrieval.py       # 检索评测（24 条 QA，输出量化报告）
 ```
 

@@ -15,7 +15,7 @@ from langchain_ollama import OllamaEmbeddings
 
 from deep_research import configuration as cfg
 
-_INDEX_FILE = "index.faiss.bin"
+_INDEX_FILE = INDEX_FILE = "index.faiss.bin"  # INDEX_FILE 公开给 ingest/测试复用
 _META_FILE = "store.pkl"
 
 
@@ -40,9 +40,9 @@ def load_vectorstore(path: Path) -> FAISS:
 
 @lru_cache
 def get_vectorstore() -> FAISS:
-    if not (cfg.CHROMA_DIR / _INDEX_FILE).exists():
+    if not (cfg.FAISS_DIR / _INDEX_FILE).exists():
         raise RuntimeError("知识库不存在，先运行: uv run python scripts/ingest.py")
-    return load_vectorstore(cfg.CHROMA_DIR)
+    return load_vectorstore(cfg.FAISS_DIR)
 
 
 @tool

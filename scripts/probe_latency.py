@@ -43,7 +43,7 @@ def timed(tag: str, messages: list, **kw) -> None:
     try:
         r = client.chat.completions.create(
             model=model, messages=messages, temperature=0,
-            extra_body={"thinking": {"type": "disabled"}}, **kw,
+            extra_body=cfg.LLM_EXTRA_BODY, **kw,
         )
         n = len(str(r.choices[0].message.content or ""))
         print(f"{tag:26s} {time.time()-t:6.1f}s  返回{n}字")

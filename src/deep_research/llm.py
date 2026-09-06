@@ -36,5 +36,5 @@ def get_model(role: str = "research") -> ChatOpenAI:
         default_headers={"Connection": "close"},
         # 关思考模式（实测 0.9s vs 5.1s）：thinking 产生的 reasoning_content 在多轮
         # 工具调用时必须回传，langchain 会剥掉 → 上游 400 "must be passed back"
-        extra_body=None if cfg.LLM_THINKING else {"thinking": {"type": "disabled"}},
+        extra_body=cfg.LLM_EXTRA_BODY,
     )

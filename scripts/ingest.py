@@ -18,7 +18,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 
 from deep_research import configuration as cfg  # noqa: E402
-from deep_research.tools.retrieval import get_embeddings, get_vectorstore, retrieve_docs, save_vectorstore  # noqa: E402
+from deep_research.tools.retrieval import INDEX_FILE, get_embeddings, get_vectorstore, retrieve_docs, save_vectorstore  # noqa: E402
 
 SECTION_RE = re.compile(r"\((https://docs\.langchain\.com/oss/python/[a-z0-9-]+/llms\.txt)\)")
 BIGMODEL_LLMSTXT = "https://docs.bigmodel.cn/llms.txt"
@@ -129,13 +129,13 @@ def build_index(docs: list[Document]) -> None:
             vs.merge_from(part)
         print(f"  {min(i + batch, len(chunks))}/{len(chunks)}", flush=True)
 
-    save_vectorstore(vs, cfg.CHROMA_DIR)
-    print(f"入库完成，共 {vs.index.ntotal} 块 -> {cfg.CHROMA_DIR}")
+    save_vectorstore(vs, cfg.FAISS_DIR)
+    print(f"入库完成，共 {vs.index.ntotal} 块 -> {cfg.FAISS_DIR}")
 
 
 def main() -> None:
-    if (cfg.CHROMA_DIR / "index.faiss.bin").exists() and "--refresh" not in sys.argv:
-        print(f"知识库已存在（{cfg.CHROMA_DIR}），跳过。重建请加 --refresh")
+    if (cfg.FAISS_DIR / INDEX_FILE).exists() and "--refresh" not in sys.argv:
+        print(f"知识库已存在（{cfg.FAISS_DIR}），跳过。重建请加 --refresh")
     else:
         docs = download_all(collect_page_urls())
         build_index(docs)

@@ -9,19 +9,28 @@ import queue
 import sys
 import threading
 import time
-import uuid
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import httpx
 import streamlit as st
 
-from deep_research.memory.store import read_memory, reset_memory
+from deep_research import configuration as cfg
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:18000")
 
 st.set_page_config(page_title="Deep Research Agents", page_icon="🔬", layout="wide")
+
+
+def api_get(path: str, timeout: float = 10):
+    try:
+        return httpx.get(f"{API_BASE}{path}", timeout=timeout).json()
+    except Exception:
+        return None
+
+
+def api_post(path: str, payload: dict | None = None, timeout: float = 600) -> httpx.Response:
+    return httpx.post(f"{API_BASE}{path}", json=payload, timeout=timeout)
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -32,17 +41,15 @@ def list_reports_cached() -> list | None:
         return None
 
 
-def api_post(path: str, payload: dict | None = None, timeout: float = 600) -> httpx.Response:
-    return httpx.post(f"{API_BASE}{path}", json=payload, timeout=timeout)
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = None
+    st.session_state.messages = []
 
 
 def new_thread() -> None:
     st.session_state.thread_id = None  # 首条消息提交时由 API 创建
     st.session_state.messages = []
 
-
-if "thread_id" not in st.session_state:
-    new_thread()
 
 st.title("🔬 深度研究多智能体系统")
 thread_label = st.session_state.thread_id or "（首次提问时创建）"
@@ -56,16 +63,20 @@ with st.sidebar:
     st.caption("任务在 API 服务进程执行，刷新页面不会中断；页面仅展示结果")
     st.divider()
     st.subheader("🧠 长期记忆 (AGENTS.md)")
-    st.text(read_memory()[:800])
+    mem = api_get("/api/memory")
+    st.text(mem["content"][:800] if mem else "（API 未启动，无法读取）")
     if st.button("🗑️ 重置长期记忆"):
         st.session_state.confirm_reset = True
     if st.session_state.get("confirm_reset"):
         st.warning("确定清空全部长期记忆？此操作不可恢复。")
         c1, c2 = st.columns(2)
         if c1.button("⚠️ 确认清空"):
-            reset_memory()
+            try:
+                api_post("/api/memory/reset", {}, timeout=10)
+                st.success("已重置")
+            except Exception:
+                st.error("API 未启动，重置失败")
             st.session_state.confirm_reset = False
-            st.success("已重置")
         if c2.button("取消"):
             st.session_state.confirm_reset = False
             st.rerun()
@@ -74,9 +85,20 @@ with st.sidebar:
     reports = list_reports_cached()  # 缓存 30s：侧栏每次 rerun 不再同步请求 API
     if reports is None:
         st.error("API 服务未启动\n\n请先运行:\nuv run uvicorn src.deep_research.api.app:app --port 18000")
+    elif reports:
+        names = [r["name"] for r in reports]
+        st.caption(f"共 {len(names)} 份")
+        with st.expander("📖 预览报告"):
+            pick = st.selectbox("选择报告", names)
+            detail = api_get(f"/api/reports/{pick}")
+            if detail:
+                st.markdown(detail["content"][:4000])
+                if "localhost" in API_BASE or "127.0.0.1" in API_BASE:
+                    # docker 部署时 API_BASE 是容器内地址，浏览器不可达，仅本地模式提供直链
+                    st.markdown(f"[⬇️ 下载原文件]({API_BASE}/api/reports/{pick}/raw)")
     else:
-        for r in reports:
-            st.write(f"{r['name']}  ({r['size_kb']} KB)")
+        st.caption("还没有报告")
+
 
 for role, content in st.session_state.messages:
     with st.chat_message(role):
@@ -87,7 +109,7 @@ def sse_reader(thread_id: str, q: queue.Queue) -> None:
     """后台线程：读 API 的 SSE 事件流，推入队列（UI 每秒轮询渲染心跳）。"""
     terminal = False
     try:
-        with httpx.stream("GET", f"{API_BASE}/api/research/{thread_id}/stream", timeout=660) as s:
+        with httpx.stream("GET", f"{API_BASE}/api/research/{thread_id}/stream", timeout=cfg.STREAM_IDLE_TIMEOUT) as s:
             for line in s.iter_lines():
                 if not line.startswith("data:"):
                     continue
