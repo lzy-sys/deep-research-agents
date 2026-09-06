@@ -1,0 +1,41 @@
+name: deep-research-agents
+
+services:
+  api:
+    build: .
+    ports:
+      - "18000:8000"  # 宿主机 8000 已被 deepsearch-backend 占用，避开
+    env_file: .env
+    environment:
+      # 容器内连宿主机 Ollama（Windows/Mac 用 host.docker.internal，Linux 加 extra_hosts）
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    volumes:
+      - ./data:/app/data          # FAISS 索引 + SQLite 分析库
+      - ./reports:/app/reports    # 研究报告落盘
+      - ./AGENTS.md:/app/AGENTS.md  # 长期记忆文件
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn src.deep_research.api.app:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  webui:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      API_BASE_URL: http://api:8000
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./AGENTS.md:/app/AGENTS.md
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - api
+    command: streamlit run webui/app.py --server.port 8501 --server.address 0.0.0.0

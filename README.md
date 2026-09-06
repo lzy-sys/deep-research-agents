@@ -77,6 +77,16 @@ data/                   # 知识库语料 / FAISS 索引 / 豆瓣电影库
 4. **记忆为什么用 AGENTS.md 而不是自建 Store**：deepagents 原生 MemoryMiddleware 把记忆文件注入每次运行的系统上下文，智能体用文件工具自主增改——跨会话持久化零自研代码，且人类可直接查看/编辑。
 5. **报告日期注入**：LLM 会臆造日期，当前日期必须由系统注入提示词。
 
+## 部署（Docker）
+
+```bash
+docker compose up -d      # api :18000 + webui :8501（.env 自动注入，data/reports/AGENTS.md 卷挂载）
+```
+
+- embedding 走宿主机 Ollama（容器内自动配置 `host.docker.internal`），LLM 走网关，密钥不进镜像
+- Windows 中文项目路径下 buildx 会报 non-ASCII 错误，用 `DOCKER_BUILDKIT=0 docker compose build`（compose up 同理）
+- 端口说明：api 宿主机侧映射为 **18000**（8000 常被其他服务占用），容器内仍是 8000
+
 ## 测试与评测
 
 ```bash
