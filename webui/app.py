@@ -108,11 +108,15 @@ if prompt := st.chat_input("输入研究主题，或针对当前研究追问…"
                     break
                 elif kind == "error":
                     final_content = payload
+                    status.update(label=f"⚠️ 调用失败（用时 {int(time.time() - start)}s）", state="error", expanded=True)
                     break
-            status.update(
-                label=f"完成 ✅（用时 {int(time.time() - start)}s）",
-                state="complete",
-                expanded=False,
-            )
+            else:
+                status.update(label="完成", state="complete")
+            if final_content and not final_content.startswith("**出错了**"):
+                status.update(
+                    label=f"完成 ✅（用时 {int(time.time() - start)}s）",
+                    state="complete",
+                    expanded=False,
+                )
         st.markdown(final_content)
         st.session_state.messages.append(("assistant", final_content))

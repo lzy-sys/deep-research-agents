@@ -22,30 +22,37 @@ def record(name: str, err: Exception | None = None, note: str = "") -> None:
 
 
 def main() -> int:
-    base_url = os.getenv("OPENCODE_BASE_URL", "")
-    api_key = os.getenv("OPENCODE_API_KEY", "")
-    model = os.getenv("MODEL_RESEARCH", "deepseek-v4-flash")
-    missing = [k for k in ("OPENCODE_API_KEY", "TAVILY_API_KEY") if not os.getenv(k) or "your-key" in os.getenv(k, "")]
-    if missing:
-        print(f"!! .env 缺少有效 Key: {', '.join(missing)}（先填 .env 再跑）\n")
+    from deep_research import configuration as cfg
 
-    # 1. 网关模型列表
-    print("\n[1/5] 网关模型列表")
-    models: list[str] = []
+    provider = cfg.LLM_PROVIDER
+    model = cfg.MODEL_RESEARCH
+    missing = [k for k in ("OPENCODE_API_KEY", "TAVILY_API_KEY") if not os.getenv(k) or "your-key" in os.getenv(k, "")]
+    tavily_needed = os.getenv("SEARCH_PROVIDER", "tavily") == "tavily"
+    if tavily_needed and "TAVILY_API_KEY" in missing:
+        print(f"!! .env 缺少有效 Key: TAVILY_API_KEY（先填 .env 再跑）\n")
+
+    # 1. 模型端点列表
+    print(f"\n[1/5] 模型端点（provider={provider}）")
     try:
-        r = httpx.get(f"{base_url.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=30)
-        r.raise_for_status()
-        models = [m["id"] for m in r.json().get("data", [])]
-        record("GET /models", note=f"{len(models)} 个模型: {', '.join(models[:10])}{' ...' if len(models) > 10 else ''}")
+        if provider == "ollama":
+            r = httpx.get(f"{cfg.OLLAMA_BASE_URL.rstrip('/')}/api/tags", timeout=10)
+            r.raise_for_status()
+            models = [m["name"] for m in r.json().get("models", [])]
+            record("GET /api/tags", note=f"{len(models)} 个模型: {', '.join(models[:8])}")
+        else:
+            r = httpx.get(f"{cfg.OPENCODE_BASE_URL.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=30)
+            r.raise_for_status()
+            models = [m["id"] for m in r.json().get("data", [])]
+            record("GET /models", note=f"{len(models)} 个模型: {', '.join(models[:10])}{' ...' if len(models) > 10 else ''}")
     except Exception as e:
-        record("GET /models", e, f"检查 OPENCODE_BASE_URL={base_url}")
+        record("模型端点", e, "检查端点配置")
 
     # 2. LLM 对话
     print("\n[2/5] LLM 对话（research 档）")
     try:
-        from langchain_openai import ChatOpenAI
+        from deep_research.llm import get_model
 
-        llm = ChatOpenAI(model=model, base_url=base_url, api_key=api_key, timeout=60)
+        llm = get_model("research")
         reply = llm.invoke("回复两个字：正常")
         record(f"chat ({model})", note=repr(reply.content)[:80])
     except Exception as e:
@@ -68,6 +75,8 @@ def main() -> int:
     # 4. Tavily 搜索
     print("\n[4/5] Tavily 搜索")
     try:
+        if not tavily_needed:
+            raise RuntimeError("SEARCH_PROVIDER != tavily，跳过判定为通过")
         from langchain_tavily import TavilySearch
 
         hit = TavilySearch(max_results=2).invoke({"query": "LangGraph multi-agent"})
@@ -83,10 +92,7 @@ def main() -> int:
     try:
         from langchain_ollama import OllamaEmbeddings
 
-        emb = OllamaEmbeddings(
-            model=os.getenv("EMBEDDING_MODEL", "qwen3-embedding:0.6b"),
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        )
+        emb = OllamaEmbeddings(model=cfg.EMBEDDING_MODEL, base_url=cfg.OLLAMA_BASE_URL)
         vec = emb.embed_query("连通性测试")
         record("OllamaEmbeddings", note=f"维度={len(vec)}")
     except Exception as e:

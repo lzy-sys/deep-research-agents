@@ -26,6 +26,8 @@ services:
     build: .
     ports:
       - "8501:8501"
+    cap_add:
+      - SYS_PTRACE  # 诊断用：允许 py-spy 抓线程堆栈
     env_file: .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434

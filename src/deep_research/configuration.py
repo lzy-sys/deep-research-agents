@@ -14,6 +14,8 @@ REPORTS_DIR = ROOT / "reports"
 DB_PATH = DATA_DIR / "douban.sqlite"
 
 # ===== LLM：OpenCode Go 网关 =====
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "opencode")  # opencode（网关）| ollama（本地）
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))  # 单次 LLM 调用超时秒数
 OPENCODE_BASE_URL = os.getenv("OPENCODE_BASE_URL", "")
 OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")
 MODEL_RESEARCH = os.getenv("MODEL_RESEARCH", "deepseek-v4-flash")

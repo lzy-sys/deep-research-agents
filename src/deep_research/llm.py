@@ -14,12 +14,19 @@ def get_model(role: str = "research") -> ChatOpenAI:
         "summarize": cfg.MODEL_SUMMARIZE,
         "report": cfg.MODEL_REPORT,
     }[role]
+    if cfg.LLM_PROVIDER == "ollama":
+        # 本地 Ollama 的 OpenAI 兼容端点：零 API 成本；冷启动加载模型较慢，超时放宽
+        base_url = cfg.OLLAMA_BASE_URL.rstrip("/") + "/v1"
+        api_key = "ollama"
+    else:
+        base_url = cfg.OPENCODE_BASE_URL
+        api_key = cfg.OPENCODE_API_KEY
     return ChatOpenAI(
         model=model_id,
-        base_url=cfg.OPENCODE_BASE_URL,
-        api_key=cfg.OPENCODE_API_KEY,
+        base_url=base_url,
+        api_key=api_key,
         temperature=0,
-        timeout=60,       # 网关偶发挂起连接，无超时会无限等待（页面转圈的根因）
+        timeout=cfg.LLM_TIMEOUT,
         max_retries=2,
         # 强制非流式：网关晚高峰流式吞吐会塌到 ~18 token/s（200 字拖 60s+），
         # 涓涓细流让读超时永远不触发；非流式实测 2s 级整体返回，超时保护才能生效
