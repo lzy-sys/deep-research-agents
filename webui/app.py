@@ -92,13 +92,22 @@ if prompt := st.chat_input("输入研究主题，或针对当前研究追问…"
         q: queue.Queue = queue.Queue()
         threading.Thread(target=run_in_background, args=(prompt, q), daemon=True).start()
         start = time.time()
+        deadline = start + 480  # 总保险丝：内部 HTTP 客户端偶发绕过超时，8 分钟强制终止
         with st.status("supervisor 规划中…", expanded=True) as status:
             final_content = None
+            timed_out = False
             while True:
                 try:
                     kind, payload = q.get(timeout=1)
                 except queue.Empty:
                     elapsed = int(time.time() - start)
+                    if time.time() > deadline:
+                        timed_out = True
+                        final_content = (
+                            "**任务超时终止**：内部调用长时间无响应（通常是网关拥堵时段）。"
+                            "请点击重试或稍后再试；也可切换 .env 里的模型。"
+                        )
+                        break
                     status.update(label=f"子智能体执行中… 已 {elapsed}s（检索/生成期间无中间事件，非卡死）")
                     continue
                 if kind == "tool":
@@ -110,9 +119,7 @@ if prompt := st.chat_input("输入研究主题，或针对当前研究追问…"
                     final_content = payload
                     status.update(label=f"⚠️ 调用失败（用时 {int(time.time() - start)}s）", state="error", expanded=True)
                     break
-            else:
-                status.update(label="完成", state="complete")
-            if final_content and not final_content.startswith("**出错了**"):
+            if not timed_out and final_content and not final_content.startswith("**出错了**"):
                 status.update(
                     label=f"完成 ✅（用时 {int(time.time() - start)}s）",
                     state="complete",
