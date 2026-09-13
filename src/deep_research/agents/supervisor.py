@@ -3,6 +3,7 @@ from datetime import date
 
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from deepagents.middleware.filesystem import FilesystemMiddleware
 
 from deep_research import configuration as cfg
 from deep_research.agents.rag_expert import build_rag_expert
@@ -29,6 +30,9 @@ def build_research_agent(checkpointer=None):
         and _CACHE["checkpointer"] is checkpointer
     ):
         return _CACHE["agent"]
+
+    cfg.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    fs_backend = FilesystemBackend(root_dir=str(cfg.REPORTS_DIR))
     agent = create_deep_agent(
         model=get_model("research"),
         system_prompt=SUPERVISOR_PROMPT.format(user_memory=store.format_memory(), today=date.today().isoformat()),
@@ -36,7 +40,11 @@ def build_research_agent(checkpointer=None):
         # 长期记忆：SQLite 结构化条目（memory/store.py），读取侧烘进提示词，
         # 写入侧走 save_memory/delete_memory 工具（勿用 deepagents memory= 中间件，会双重注入）
         tools=[save_memory, delete_memory],
-        backend=FilesystemBackend(root_dir=str(cfg.ROOT)),  # write_file 用于报告落盘
+        # 文件系统根目录严格限制为 reports/，且只暴露 read_file/write_file
+        # （FilesystemMiddleware 强制要求 read_file 随附）：模型无法浏览目录、
+        # 编辑或删除 reports 之外的内容（含源码、配置、密钥）。
+        backend=fs_backend,
+        middleware=[FilesystemMiddleware(backend=fs_backend, tools=["read_file", "write_file"])],
         checkpointer=checkpointer,
     )
     _CACHE.update(agent=agent, mem_version=version, checkpointer=checkpointer)

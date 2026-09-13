@@ -18,24 +18,29 @@ import streamlit as st
 from deep_research import configuration as cfg
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:18000")
+API_KEY = os.getenv("API_KEY", "")
 
 st.set_page_config(page_title="Deep Research Agents", page_icon="🔬", layout="wide")
 
 
+def _headers() -> dict:
+    return {"X-API-Key": API_KEY} if API_KEY else {}
+
+
 def api_get(path: str, timeout: float = 10):
     try:
-        return httpx.get(f"{API_BASE}{path}", timeout=timeout).json()
+        return httpx.get(f"{API_BASE}{path}", headers=_headers(), timeout=timeout).json()
     except Exception:
         return None
 
 
 def api_post(path: str, payload: dict | None = None, timeout: float = 600) -> httpx.Response:
-    return httpx.post(f"{API_BASE}{path}", json=payload, timeout=timeout)
+    return httpx.post(f"{API_BASE}{path}", json=payload, headers=_headers(), timeout=timeout)
 
 
 def api_delete(path: str, timeout: float = 10) -> bool:
     try:
-        return httpx.delete(f"{API_BASE}{path}", timeout=timeout).is_success
+        return httpx.delete(f"{API_BASE}{path}", headers=_headers(), timeout=timeout).is_success
     except Exception:
         return False
 
@@ -43,7 +48,7 @@ def api_delete(path: str, timeout: float = 10) -> bool:
 @st.cache_data(ttl=30, show_spinner=False)
 def list_reports_cached() -> list | None:
     try:
-        return httpx.get(f"{API_BASE}/api/reports", timeout=5).json()
+        return httpx.get(f"{API_BASE}/api/reports", headers=_headers(), timeout=5).json()
     except Exception:
         return None
 
@@ -132,40 +137,57 @@ for role, content in st.session_state.messages:
 def sse_reader(thread_id: str, q: queue.Queue) -> None:
     """后台线程：读 API 的 SSE 事件流，推入队列（UI 每秒轮询渲染心跳）。"""
     terminal = False
-    try:
-        with httpx.stream("GET", f"{API_BASE}/api/research/{thread_id}/stream", timeout=cfg.STREAM_IDLE_TIMEOUT) as s:
-            for line in s.iter_lines():
-                if not line.startswith("data:"):
-                    continue
-                payload = line[5:].strip()
-                if payload == "[DONE]":
-                    terminal = True
-                    break
-                try:
-                    event = json.loads(payload)
-                except json.JSONDecodeError:
-                    continue
-                if event.get("type") == "tool":
-                    q.put(("tool", event["label"]))
-                elif event.get("type") == "final":
-                    q.put(("final", event["content"]))
-                    terminal = True
-                    break
-                elif event.get("type") == "error":
-                    q.put(("error", f"**任务失败**：{event['content']}"))
-                    terminal = True
-                    break
-                elif event.get("type") == "timeout":
-                    q.put(("error", "**任务超时**：API 等待事件超时，请重试"))
-                    terminal = True
-                    break
-                elif event.get("type") == "ping":
-                    continue  # API 心跳：仅保活连接，UI 本地每秒刷新计时
-    except Exception as e:
-        q.put(("error", f"**连接 API 失败**：{type(e).__name__}: {e}\n\n请确认 API 服务已启动。"))
-        return
+    last_event_id = None
+    for attempt in range(3):
+        headers = _headers()
+        if last_event_id:
+            headers["Last-Event-ID"] = last_event_id
+        try:
+            with httpx.stream(
+                "GET",
+                f"{API_BASE}/api/research/{thread_id}/stream",
+                headers=headers,
+                timeout=cfg.STREAM_IDLE_TIMEOUT,
+            ) as s:
+                for line in s.iter_lines():
+                    if line.startswith("id:"):
+                        last_event_id = line[3:].strip()
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        terminal = True
+                        break
+                    try:
+                        event = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("type") == "tool":
+                        q.put(("tool", event["label"]))
+                    elif event.get("type") == "final":
+                        q.put(("final", event["content"]))
+                        terminal = True
+                        break
+                    elif event.get("type") in {"error", "cancelled"}:
+                        q.put(("error", f"**任务失败**：{event['content']}"))
+                        terminal = True
+                        break
+                    elif event.get("type") == "timeout":
+                        q.put(("error", "**任务超时**：API 等待事件超时，请重试"))
+                        terminal = True
+                        break
+                    elif event.get("type") == "ping":
+                        continue  # API 心跳：仅保活连接，UI 本地每秒刷新计时
+            if terminal:
+                return
+        except Exception as e:
+            if attempt == 2:
+                q.put(("error", f"**连接 API 失败**：{type(e).__name__}: {e}\n\n请确认 API 服务已启动。"))
+                return
+        time.sleep(0.5)
     if not terminal:  # 流被静默掐断（如服务重启）：必须终止 UI 循环，否则永远转圈
-        q.put(("error", "**连接中断**：事件流意外断开（任务可能仍在服务端执行）。请点「开启新研究」重试。"))
+        q.put(("error", "**连接中断**：重放失败，任务状态可在服务端查询。请重新连接。"))
 
 
 def run_research(prompt: str):
@@ -195,6 +217,9 @@ def run_followup(prompt: str):
             if r.status_code == 404:
                 status.update(label="⚠️ 会话不存在", state="error", expanded=True)
                 return "**会话已失效**（该线程没有历史上下文）。请点「🆕 开启新研究」重新开始。"
+            if r.status_code == 409:
+                status.update(label="⚠️ 上一轮任务仍在执行", state="error", expanded=True)
+                return "**上一轮任务仍在执行**，请等它结束后再追问。"
             r.raise_for_status()
         except Exception as e:
             status.update(label="⚠️ 无法连接 API 服务", state="error", expanded=True)

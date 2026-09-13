@@ -1,0 +1,867 @@
+{
+  "generated_at": "2026-09-13T03:48:37+00:00",
+  "git": {
+    "sha": "2bed40be4563fa7fd4f9e3f2b66551597129f109",
+    "dirty": true
+  },
+  "dataset": {
+    "path": "evals\\qa_dataset.jsonl",
+    "sha256": "fba5febac7daa035e1d8992b6b252ae3a02d07c3974fa3402714d907f9a2aac4",
+    "samples": 24
+  },
+  "index": {
+    "ntotal": 7568,
+    "embedding_model": "qwen3-embedding:0.6b"
+  },
+  "baseline": {
+    "hit_at_5": 0.875,
+    "mrr": 0.71875,
+    "latency_p50_seconds": 0.13826309999967634,
+    "latency_p95_seconds": 0.15688829999999143,
+    "fallback_count": 0,
+    "average_attempts": 1.0
+  },
+  "agentic": {
+    "hit_at_5": 0.9583333333333334,
+    "mrr": 0.7409722222222223,
+    "latency_p50_seconds": 0.13281469999947149,
+    "latency_p95_seconds": 41.017379200000505,
+    "fallback_count": 0,
+    "average_attempts": 1.3333333333333333
+  },
+  "rows": [
+    {
+      "id": "lg-01",
+      "question": "LangGraph 的 Send API 怎么实现动态并行派发子任务？",
+      "expected": [
+        "langgraph__graph-api",
+        "langgraph__workflows-agents"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__use-graph-api.md",
+          "langgraph/oss__python__langgraph__use-functional-api.md",
+          "langgraph/oss__python__langgraph__use-graph-api.md",
+          "langgraph/oss__python__langgraph__graph-api.md",
+          "langchain/oss__python__langchain__multi-agent__index.md"
+        ],
+        "rank": 4,
+        "seconds": 0.15688829999999143
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__use-graph-api.md",
+          "langgraph/oss__python__langgraph__use-graph-api.md",
+          "langgraph/oss__python__langgraph__graph-api.md",
+          "langgraph/oss__python__langgraph__use-graph-api.md",
+          "deepagents/oss__python__deepagents__retrieval.md"
+        ],
+        "rank": 3,
+        "seconds": 13.857891599999675,
+        "attempts": 2,
+        "queries": [
+          "LangGraph 的 Send API 怎么实现动态并行派发子任务？",
+          "LangGraph Send API 动态并行派发子任务：如何使用 langgraph.types.Send 在 conditional_edges 中实现 map-reduce 动态分支的完整示例"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-02",
+      "question": "LangGraph 的 checkpointer 检查点是如何实现状态持久化的？",
+      "expected": [
+        "langgraph__checkpointers"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "langgraph/oss__python__langgraph__add-memory.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13961010000002716
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__checkpointers.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "langgraph/oss__python__langgraph__add-memory.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13232639999932871,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 的 checkpointer 检查点是如何实现状态持久化的？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-03",
+      "question": "LangGraph 的 interrupt 如何实现人工审批（human-in-the-loop）？",
+      "expected": [
+        "langgraph__interrupts"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__human-in-the-loop.md",
+          "langgraph/oss__python__langgraph__interrupts.md",
+          "langchain/oss__python__langchain__frontend__human-in-the-loop.md",
+          "langgraph/oss__python__langgraph__use-functional-api.md",
+          "langgraph/oss__python__langgraph__interrupts.md"
+        ],
+        "rank": 2,
+        "seconds": 0.13773279999986698
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__human-in-the-loop.md",
+          "langgraph/oss__python__langgraph__interrupts.md",
+          "langchain/oss__python__langchain__frontend__human-in-the-loop.md",
+          "langgraph/oss__python__langgraph__use-functional-api.md",
+          "langgraph/oss__python__langgraph__interrupts.md"
+        ],
+        "rank": 2,
+        "seconds": 0.13230800000019372,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 的 interrupt 如何实现人工审批（human-in-the-loop）？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-04",
+      "question": "LangGraph 里如何在图中嵌套使用子图（subgraph）？",
+      "expected": [
+        "langgraph__use-subgraphs"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-time-travel.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1374838000001546
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-time-travel.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md",
+          "langgraph/oss__python__langgraph__use-subgraphs.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1322108999993361,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 里如何在图中嵌套使用子图（subgraph）？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-05",
+      "question": "LangGraph 支持哪些流式输出模式？",
+      "expected": [
+        "langgraph__streaming"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langchain/oss__python__langchain__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1389766000002055
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md",
+          "langchain/oss__python__langchain__streaming.md",
+          "langgraph/oss__python__langgraph__streaming.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13416490000054182,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 支持哪些流式输出模式？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-06",
+      "question": "LangGraph 的 Store 长期记忆怎么跨线程使用？",
+      "expected": [
+        "langgraph__stores",
+        "langgraph__add-memory"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__stores.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "deepagents/oss__python__deepagents__backends.md",
+          "langgraph/oss__python__langgraph__use-functional-api.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13893230000030599
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__stores.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "langgraph/oss__python__langgraph__persistence.md",
+          "deepagents/oss__python__deepagents__backends.md",
+          "langgraph/oss__python__langgraph__use-functional-api.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1340832000005321,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 的 Store 长期记忆怎么跨线程使用？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-07",
+      "question": "LangGraph 底层的 Pregel/BSP 执行模型是怎么工作的？",
+      "expected": [
+        "langgraph__pregel"
+      ],
+      "baseline": {
+        "sources": [
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__graph-api.md",
+          "langgraph/oss__python__langgraph__overview.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13826309999967634
+      },
+      "agentic": {
+        "sources": [
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__pregel.md",
+          "langgraph/oss__python__langgraph__graph-api.md",
+          "langgraph/oss__python__langgraph__overview.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13195279999945342,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 底层的 Pregel/BSP 执行模型是怎么工作的？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lg-08",
+      "question": "LangGraph 多智能体的 supervisor 架构模式是什么？",
+      "expected": [
+        "langchain__multi-agent",
+        "langgraph__workflows-agents"
+      ],
+      "baseline": {
+        "sources": [
+          "langchain/oss__python__langchain__multi-agent__subagents.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md",
+          "deepagents/oss__python__deepagents__async-subagents.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13696319999962725
+      },
+      "agentic": {
+        "sources": [
+          "langchain/oss__python__langchain__multi-agent__subagents.md",
+          "deepagents/oss__python__deepagents__async-subagents.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md",
+          "langchain/oss__python__langchain__multi-agent__subagents-personal-assistant.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13234519999969052,
+        "attempts": 1,
+        "queries": [
+          "LangGraph 多智能体的 supervisor 架构模式是什么？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-01",
+      "question": "deepagents 的 create_deep_agent 有哪些参数？",
+      "expected": [
+        "deepagents__quickstart",
+        "deepagents__overview",
+        "deepagents__customization"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__dynamic-subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1387003999998342
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__dynamic-subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13714170000002923,
+        "attempts": 1,
+        "queries": [
+          "deepagents 的 create_deep_agent 有哪些参数？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-02",
+      "question": "deepagents 怎么定义 subagents 子智能体？",
+      "expected": [
+        "deepagents__subagents"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "langchain/oss__python__langchain__multi-agent__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 1,
+        "seconds": 0.14049189999968803
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 1,
+        "seconds": 12.757227500000226,
+        "attempts": 2,
+        "queries": [
+          "deepagents 怎么定义 subagents 子智能体？",
+          "deepagents 中如何通过 create_deep_agent 的 subagents 参数定义子智能体（name、description、system_prompt、tools 字段）？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-03",
+      "question": "deepagents 的 middleware 中间件机制如何扩展智能体？",
+      "expected": [
+        "deepagents__customization",
+        "deepagents__tools"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__customization.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13578469999993104
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md"
+        ],
+        "rank": 1,
+        "seconds": 11.462716099999852,
+        "attempts": 2,
+        "queries": [
+          "deepagents 的 middleware 中间件机制如何扩展智能体？",
+          "deepagents 中如何通过 create_deep_agent 的 middleware 参数传入自定义 middleware 并合并进 Deep Agents stack（按 .name 匹配替换或插入 PatchToolCallsMiddleware 之后）来扩展智能体？请给出自定义 middleware 的代码示例。"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-04",
+      "question": "deepagents 的文件系统后端 backend 有哪些可选实现？",
+      "expected": [
+        "deepagents__backends"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__backends.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__backends.md",
+          "deepagents/oss__python__deepagents__customization.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1375330999999278
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__backends.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__backends.md",
+          "deepagents/oss__python__deepagents__customization.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13127309999981662,
+        "attempts": 1,
+        "queries": [
+          "deepagents 的文件系统后端 backend 有哪些可选实现？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-05",
+      "question": "deepagents 的长期记忆 AGENTS.md 机制怎么工作？",
+      "expected": [
+        "deepagents__memory"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__memory.md",
+          "deepagents/oss__python__deepagents__memory.md",
+          "deepagents/oss__python__deepagents__overview.md"
+        ],
+        "rank": 3,
+        "seconds": 0.13512769999942975
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__memory.md",
+          "deepagents/oss__python__deepagents__memory.md",
+          "deepagents/oss__python__deepagents__overview.md"
+        ],
+        "rank": 3,
+        "seconds": 0.13179029999992053,
+        "attempts": 1,
+        "queries": [
+          "deepagents 的长期记忆 AGENTS.md 机制怎么工作？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "da-06",
+      "question": "deepagents 的 skills 技能系统（SKILL.md）如何按需加载？",
+      "expected": [
+        "deepagents__skills"
+      ],
+      "baseline": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__skills.md",
+          "deepagents/oss__python__deepagents__skills.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 3,
+        "seconds": 0.13653450000037992
+      },
+      "agentic": {
+        "sources": [
+          "deepagents/oss__python__deepagents__customization.md",
+          "deepagents/oss__python__deepagents__overview.md",
+          "deepagents/oss__python__deepagents__skills.md",
+          "deepagents/oss__python__deepagents__skills.md",
+          "deepagents/oss__python__deepagents__subagents.md"
+        ],
+        "rank": 3,
+        "seconds": 0.13154020000001765,
+        "attempts": 1,
+        "queries": [
+          "deepagents 的 skills 技能系统（SKILL.md）如何按需加载？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lc-01",
+      "question": "LangChain 的 create_agent 怎么创建一个智能体？",
+      "expected": [
+        "langchain__agents",
+        "langchain__overview"
+      ],
+      "baseline": {
+        "sources": [
+          "langchain/oss__python__langchain__overview.md",
+          "langchain/oss__python__langchain__overview.md",
+          "langchain/oss__python__langchain__quickstart.md",
+          "langchain/oss__python__langchain__voice-agent.md",
+          "langchain/oss__python__langchain__quickstart.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13920169999983045
+      },
+      "agentic": {
+        "sources": [
+          "langchain/oss__python__langchain__overview.md",
+          "langchain/oss__python__langchain__overview.md",
+          "langchain/oss__python__langchain__quickstart.md",
+          "langchain/oss__python__langchain__quickstart.md",
+          "langchain/oss__python__langchain__voice-agent.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13291109999954642,
+        "attempts": 1,
+        "queries": [
+          "LangChain 的 create_agent 怎么创建一个智能体？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lc-02",
+      "question": "LangChain 用 @tool 装饰器怎么定义自定义工具？",
+      "expected": [
+        "langchain__tools"
+      ],
+      "baseline": {
+        "sources": [
+          "langchain/oss__python__langchain__tools.md",
+          "langchain/oss__python__langchain__quickstart.md",
+          "langgraph/oss__python__langgraph__quickstart.md",
+          "langchain/oss__python__langchain__models.md",
+          "langchain/oss__python__langchain__overview.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1392507000000478
+      },
+      "agentic": {
+        "sources": [
+          "langchain/oss__python__langchain__tools.md",
+          "langchain/oss__python__langchain__quickstart.md",
+          "langgraph/oss__python__langgraph__quickstart.md",
+          "langchain/oss__python__langchain__models.md",
+          "langchain/oss__python__langchain__overview.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13297209999927873,
+        "attempts": 1,
+        "queries": [
+          "LangChain 用 @tool 装饰器怎么定义自定义工具？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lc-03",
+      "question": "LangChain 的 with_structured_output 结构化输出怎么用？",
+      "expected": [
+        "langchain__structured-output"
+      ],
+      "baseline": {
+        "sources": [
+          "langchain/oss__python__langchain__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md",
+          "langchain/oss__python__langchain__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13539829999990616
+      },
+      "agentic": {
+        "sources": [
+          "langchain/oss__python__langchain__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md",
+          "langchain/oss__python__langchain__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md",
+          "langchain/oss__python__langchain__frontend__structured-output.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13047610000012355,
+        "attempts": 1,
+        "queries": [
+          "LangChain 的 with_structured_output 结构化输出怎么用？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "lc-04",
+      "question": "LangChain 有哪些消息类型（SystemMessage/HumanMessage 等）？",
+      "expected": [
+        "langchain__messages"
+      ],
+      "baseline": {
+        "sources": [
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1370093999994424
+      },
+      "agentic": {
+        "sources": [
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md",
+          "langchain/oss__python__langchain__messages.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1300389999996696,
+        "attempts": 1,
+        "queries": [
+          "LangChain 有哪些消息类型（SystemMessage/HumanMessage 等）？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-01",
+      "question": "智谱 GLM 有哪些模型可选？怎么选型？",
+      "expected": [
+        "cn__guide__start__model-overview",
+        "cn__guide__models__text"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__coding-plan__quick-start.md",
+          "bigmodel-zh/cn__terms__subscription-agreement.md",
+          "bigmodel-zh/cn__guide__platform__filing.md",
+          "bigmodel-zh/cn__guide__tools__evaluation.md",
+          "bigmodel-zh/cn__guide__develop__python__introduction.md"
+        ],
+        "rank": null,
+        "seconds": 0.13726709999991726
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__guide__tools__evaluation.md",
+          "bigmodel-zh/cn__terms__subscription-agreement.md",
+          "bigmodel-zh/cn__coding-plan__overview.md",
+          "bigmodel-zh/cn__guide__platform__filing.md",
+          "bigmodel-zh/cn__guide__models__image-generation__glm-image.md"
+        ],
+        "rank": null,
+        "seconds": 97.64573460000065,
+        "attempts": 3,
+        "queries": [
+          "智谱 GLM 有哪些模型可选？怎么选型？",
+          "智谱开放平台 GLM 系列有哪些模型可选（如 GLM-4-Plus、GLM-4-Air、GLM-4-Flash、GLM-4-Long 等）？各模型的能力差异、适用场景和价格如何？如何根据需求进行选型？",
+          "智谱开放平台 GLM 系列（GLM-4-Plus、GLM-4-Air、GLM-4-Flash、GLM-4-Long 等）各模型的 API 价格与计费方式、能力差异、适用场景对比，以及如何根据需求进行选型？请提供各模型的价格表和选型建议。"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-02",
+      "question": "智谱开放平台的 API Key 怎么获取和鉴权？",
+      "expected": [
+        "cn__faq__authentication-issues",
+        "cn__guide__start__quick-start"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__api__introduction.md",
+          "bigmodel-zh/cn__guide__start__quick-start.md",
+          "bigmodel-zh/cn__guide__develop__java__introduction.md",
+          "bigmodel-zh/cn__guide__develop__http__introduction.md",
+          "bigmodel-zh/cn__guide__platform__securityaudit.md"
+        ],
+        "rank": 2,
+        "seconds": 0.136660899999697
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__api__introduction.md",
+          "bigmodel-zh/cn__guide__start__quick-start.md",
+          "bigmodel-zh/cn__guide__develop__http__introduction.md",
+          "bigmodel-zh/cn__guide__develop__java__introduction.md",
+          "bigmodel-zh/cn__guide__platform__securityaudit.md"
+        ],
+        "rank": 2,
+        "seconds": 0.13097379999999248,
+        "attempts": 1,
+        "queries": [
+          "智谱开放平台的 API Key 怎么获取和鉴权？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-03",
+      "question": "GLM 的工具调用（function calling）怎么用？",
+      "expected": [
+        "cn__guide__capabilities__function-calling"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__guide__models__text__glm-5.2.md",
+          "bigmodel-zh/cn__guide__models__vlm__glm-5.3-flash.md",
+          "bigmodel-zh/cn__guide__develop__python__introduction.md",
+          "bigmodel-zh/cn__guide__start__quick-start.md",
+          "bigmodel-zh/cn__coding-plan__extension__coding-tool-helper.md"
+        ],
+        "rank": null,
+        "seconds": 0.13890020000053482
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__guide__start__migrate-to-glm-new.md",
+          "bigmodel-zh/cn__guide__develop__python__introduction.md",
+          "bigmodel-zh/cn__guide__capabilities__function-calling.md",
+          "bigmodel-zh/cn__guide__models__vlm__glm-5.3-flash.md",
+          "bigmodel-zh/cn__guide__start__quick-start.md"
+        ],
+        "rank": 3,
+        "seconds": 15.681528000000071,
+        "attempts": 2,
+        "queries": [
+          "GLM 的工具调用（function calling）怎么用？",
+          "GLM 的 function calling 工具调用怎么用？请给出 Python SDK 中定义函数、在 messages 中传入 tools 参数并解析 tool_calls 返回结果的完整代码示例"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-04",
+      "question": "GLM 的结构化输出（JSON mode）怎么开启？",
+      "expected": [
+        "cn__guide__capabilities__struct-output"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__guide__models__vlm__glm-ocr.md",
+          "bigmodel-zh/cn__guide__models__text__glm-5.2.md",
+          "bigmodel-zh/cn__guide__capabilities__struct-output.md",
+          "bigmodel-zh/cn__guide__tools__fine-tuning.md",
+          "bigmodel-zh/cn__guide__models__vlm__glm-5.3-flash.md"
+        ],
+        "rank": 3,
+        "seconds": 0.15766849999999977
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__guide__models__vlm__glm-ocr.md",
+          "bigmodel-zh/cn__guide__models__text__glm-5.2.md",
+          "bigmodel-zh/cn__guide__models__vlm__glm-5.3-flash.md",
+          "bigmodel-zh/cn__guide__capabilities__struct-output.md",
+          "bigmodel-zh/cn__guide__tools__fine-tuning.md"
+        ],
+        "rank": 4,
+        "seconds": 0.13281469999947149,
+        "attempts": 1,
+        "queries": [
+          "GLM 的结构化输出（JSON mode）怎么开启？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-05",
+      "question": "智谱 API 的速率限制（并发/限流）规则是什么？",
+      "expected": [
+        "cn__api__rate-limit"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__api__rate-limit.md",
+          "bigmodel-zh/cn__api__rate-limit.md",
+          "bigmodel-zh/cn__terms__subscription-agreement-team.md",
+          "bigmodel-zh/cn__terms__subscription-agreement.md",
+          "bigmodel-zh/cn__terms__subscription-agreement-team.md"
+        ],
+        "rank": 1,
+        "seconds": 0.13928780000060215
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__api__rate-limit.md",
+          "bigmodel-zh/cn__api__rate-limit.md",
+          "bigmodel-zh/cn__terms__subscription-agreement-team.md",
+          "bigmodel-zh/cn__terms__subscription-agreement.md",
+          "bigmodel-zh/cn__terms__subscription-agreement-team.md"
+        ],
+        "rank": 1,
+        "seconds": 0.1312738000005993,
+        "attempts": 1,
+        "queries": [
+          "智谱 API 的速率限制（并发/限流）规则是什么？"
+        ],
+        "relevant": true
+      }
+    },
+    {
+      "id": "zm-06",
+      "question": "GLM 的流式输出（SSE）怎么实现？",
+      "expected": [
+        "cn__guide__capabilities__streaming"
+      ],
+      "baseline": {
+        "sources": [
+          "bigmodel-zh/cn__guide__start__quick-start.md",
+          "bigmodel-zh/cn__guide__start__migrate-to-glm-new.md",
+          "bigmodel-zh/cn__guide__models__text__glm-5.2.md",
+          "bigmodel-zh/cn__guide__models__vlm__glm-5.3-flash.md",
+          "bigmodel-zh/cn__coding-plan__extension__coding-tool-helper.md"
+        ],
+        "rank": null,
+        "seconds": 0.13720250000005763
+      },
+      "agentic": {
+        "sources": [
+          "bigmodel-zh/cn__guide__start__migrate-to-glm-new.md",
+          "bigmodel-zh/cn__guide__start__concept-param.md",
+          "bigmodel-zh/cn__guide__start__quick-start.md",
+          "bigmodel-zh/cn__guide__models__text__glm-5.2.md",
+          "bigmodel-zh/cn__guide__capabilities__streaming.md"
+        ],
+        "rank": 5,
+        "seconds": 41.017379200000505,
+        "attempts": 3,
+        "queries": [
+          "GLM 的流式输出（SSE）怎么实现？",
+          "GLM 的流式输出（SSE）怎么实现？请给出具体的 API 调用示例，包括 stream 参数设置以及 SSE 流式响应的接收与解析方法。",
+          "GLM 的流式输出（SSE）如何实现？请给出完整的 API 调用示例（stream=True 参数设置）以及 SSE 流式响应的接收与解析代码示例（如何增量读取 choices[0].delta.content 并处理 finish_reason 与 usage）"
+        ],
+        "relevant": true
+      }
+    }
+  ]
+}

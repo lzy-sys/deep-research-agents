@@ -1,9 +1,13 @@
 """模型工厂：按档取模型（research/summarize），统一走 OpenCode 网关。"""
+import os
 from functools import lru_cache
+from uuid import uuid4
 
 from langchain_openai import ChatOpenAI
 
 from deep_research import configuration as cfg
+
+_OPENCODE_SESSION_ID = os.getenv("OPENCODE_SESSION_ID") or uuid4().hex
 
 
 @lru_cache
@@ -32,7 +36,10 @@ def get_model(role: str = "research") -> ChatOpenAI:
         disable_streaming=True,
         # 禁用 keep-alive 复用：网关空闲期单方面掐断池内连接，长驻进程复用半死连接
         # 会把请求发进黑洞且超时不触发（反复"转圈卡死"的最终根因）
-        default_headers={"Connection": "close"},
+        default_headers={
+            "Connection": "close",
+            "x-opencode-session": _OPENCODE_SESSION_ID,
+        },
         # 关思考模式（实测 0.9s vs 5.1s）：thinking 产生的 reasoning_content 在多轮
         # 工具调用时必须回传，langchain 会剥掉 → 上游 400 "must be passed back"
         extra_body=cfg.LLM_EXTRA_BODY,

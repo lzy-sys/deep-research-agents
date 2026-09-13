@@ -1,4 +1,4 @@
-"""豆瓣电影库只读 SQL 工具：纯代码安全闸门（仅 SELECT/WITH、单语句、强制 LIMIT）。"""
+"""豆瓣电影库只读 SQL 工具：纯代码安全闸门（仅 SELECT/WITH、单语句、禁注释、LIMIT 收敛）。"""
 import re
 import sqlite3
 
@@ -11,6 +11,7 @@ _FORBIDDEN = re.compile(
     re.I,
 )
 MAX_ROWS = 50
+_LIMIT_RE = re.compile(r"\bLIMIT\s+(\d+)\b", re.I)
 
 
 def check_sql(sql: str) -> tuple[str, str | None]:
@@ -20,12 +21,17 @@ def check_sql(sql: str) -> tuple[str, str | None]:
         return sql, "SQL 为空"
     if ";" in sql:
         return sql, "禁止多语句"
+    if "--" in sql or "/*" in sql:
+        return sql, "禁止使用注释"
     if _FORBIDDEN.search(sql):
         return sql, "仅允许 SELECT 查询"
     if not sql.upper().startswith(("SELECT", "WITH")):
         return sql, "仅允许 SELECT/WITH 开头的查询"
-    if not re.search(r"\bLIMIT\s+\d+\b", sql, re.I):
+    limit = _LIMIT_RE.search(sql)
+    if limit is None:
         sql += f" LIMIT {MAX_ROWS}"  # 强制限行，防全表拉爆
+    elif int(limit.group(1)) > MAX_ROWS:
+        sql = _LIMIT_RE.sub(f"LIMIT {MAX_ROWS}", sql, count=1)
     return sql, None
 
 
@@ -69,4 +75,5 @@ def run_sql(sql: str) -> str:
     head = "| " + " | ".join(cols) + " |"
     sep = "|" + "---|" * len(cols)
     body = "\n".join("| " + " | ".join(str(v) for v in r) + " |" for r in rows)
-    return f"{head}\n{sep}\n{body}\n\n(共 {len(rows)} 行)"
+    table = f"{head}\n{sep}\n{body}\n\n(共 {len(rows)} 行)"
+    return f"<untrusted_database_content>\n{table}\n</untrusted_database_content>"

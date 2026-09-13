@@ -23,7 +23,8 @@ def iter_tool_labels(update: dict):
     """从单个节点的 update 中产出工具调用的展示标签。"""
     for m in update.get("messages", []):
         for tc in getattr(m, "tool_calls", None) or []:
-            label = TOOL_LABELS.get(tc.get("name"), lambda a: tc.get("name"))
+            name = tc.get("name")
+            label = TOOL_LABELS.get(name, lambda _args, fallback=name: fallback)
             yield label(tc.get("args", {}))
 
 

@@ -10,10 +10,11 @@ from rich.panel import Panel
 
 from deep_research import configuration as cfg
 from deep_research.events import final_content, iter_tool_labels, new_thread_id
-from deep_research.graph import build
+from deep_research.graph import build, get_checkpointer
 from deep_research.memory import store
 
 console = Console()
+_THREAD_FILE = cfg.DATA_DIR / "cli_thread.txt"
 
 HELP = """[bold]命令[/]
   直接输入文字   新研究主题 / 针对当前研究的追问
@@ -33,6 +34,23 @@ def show_reports() -> None:
         console.print(f"  {f.name}  ({f.stat().st_size // 1024} KB)")
 
 
+def _load_or_create_thread() -> tuple[str, bool]:
+    """恢复上次 CLI 会话线程；无记录则新建。返回 (thread_id, 是否恢复)。"""
+    cfg.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if _THREAD_FILE.exists():
+        tid = _THREAD_FILE.read_text(encoding="utf-8").strip()
+        if tid:
+            return tid, True
+    tid = new_thread_id()
+    _THREAD_FILE.write_text(tid, encoding="utf-8")
+    return tid, False
+
+
+def _save_thread(tid: str) -> None:
+    cfg.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _THREAD_FILE.write_text(tid, encoding="utf-8")
+
+
 def run_turn(agent, config: dict, user_input: str) -> None:
     with console.status("[dim]supervisor 规划中…[/]"):
         for chunk in agent.stream({"messages": [("user", user_input)]}, config, stream_mode="updates"):
@@ -50,13 +68,17 @@ def run_turn(agent, config: dict, user_input: str) -> None:
 
 def main() -> int:
     console.print(Panel("深度研究多智能体系统\nsupervisor + web-researcher / rag-expert / sql-expert", title="Deep Research"))
-    agent = build()
-    config = {"configurable": {"thread_id": new_thread_id()}}
+    agent = build(get_checkpointer())
 
     if len(sys.argv) > 1:  # 非交互模式：命令行直接给研究主题
+        config = {"configurable": {"thread_id": new_thread_id()}}
         run_turn(agent, config, " ".join(sys.argv[1:]))
         return 0
 
+    thread_id, resumed = _load_or_create_thread()
+    config = {"configurable": {"thread_id": thread_id}}
+    if resumed:
+        console.print("[dim]已恢复上次会话（/new 开启全新会话）[/]")
     console.print(f"[dim]thread: {config['configurable']['thread_id']} | 记忆: {cfg.MEMORY_DB_PATH.name}[/]\n{HELP}\n")
     while True:
         try:
@@ -69,6 +91,7 @@ def main() -> int:
             break
         if user == "/new":
             config = {"configurable": {"thread_id": new_thread_id()}}
+            _save_thread(config["configurable"]["thread_id"])
             console.print(f"[dim]新会话: {config['configurable']['thread_id']}[/]")
             continue
         if user == "/memory":
@@ -78,7 +101,7 @@ def main() -> int:
             continue
         if user == "/memory/reset":
             removed = store.reset_memory()
-            agent = build()  # 重建使新记忆生效
+            agent = build(get_checkpointer())  # 重建使新记忆生效
             console.print(f"[dim]记忆已重置（清除 {removed} 条）[/]")
             continue
         if user == "/reports":

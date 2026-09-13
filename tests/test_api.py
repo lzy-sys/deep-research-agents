@@ -1,4 +1,4 @@
-"""API 服务层测试：RUNS 生命周期 / SSE 事件流 / 追问 / 记忆与报告端点。
+"""API 服务层测试：持久化 run/event、SSE 重放、追问、鉴权、记忆与报告端点。
 
 用 FakeAgent 替换真实 deep agent，全程不触网、不编译图。
 """
@@ -7,7 +7,9 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from deep_research import configuration as cfg
 from deep_research.api import app as api_app
+from deep_research.api import run_store
 from deep_research.memory import store
 
 
@@ -45,9 +47,10 @@ class FakeAgent:
 def env(monkeypatch, tmp_path):
     monkeypatch.setattr(store, "DB_PATH", tmp_path / "memory.sqlite")
     monkeypatch.setattr(store, "LEGACY_MD_PATH", tmp_path / "AGENTS.md")
+    monkeypatch.setattr(run_store, "DB_PATH", tmp_path / "runs.sqlite")
     fake = FakeAgent()
     monkeypatch.setattr(api_app, "build", lambda checkpointer: fake)
-    api_app.RUNS.clear()
+    monkeypatch.setattr(api_app, "get_checkpointer", lambda: None)
     with TestClient(api_app.app) as client:
         yield client, fake
 
@@ -85,7 +88,7 @@ def test_research_stream_flow(env):
     assert events[0] == {"type": "tool", "label": "SQL → SELECT 1"}
     assert events[1] == {"type": "final", "content": "最终结论"}
     assert events[-1] == {"type": "[DONE]"}
-    assert api_app.RUNS[thread_id].done is True
+    assert run_store.get_run(thread_id).status == "done"
     # 追问消息进入图输入
     assert fake.stream_inputs[0][1]["configurable"]["thread_id"] == thread_id
 
@@ -93,12 +96,20 @@ def test_research_stream_flow(env):
 def test_research_purges_stale_runs(env):
     client, _ = env
     old_id = client.post("/api/research", json={"topic": "旧任务"}).json()["thread_id"]
-    api_app.RUNS[old_id].done_at = time.time() - api_app.RUN_STALE_SECONDS - 1
+    con = run_store._connect()
+    try:
+        con.execute(
+            "UPDATE runs SET status='done', done_at=? WHERE thread_id=?",
+            (time.time() - api_app.RUN_STALE_SECONDS - 1, old_id),
+        )
+        con.commit()
+    finally:
+        con.close()
 
     new_id = client.post("/api/research", json={"topic": "新任务"}).json()["thread_id"]
 
-    assert old_id not in api_app.RUNS  # 过期条目被清理
-    assert new_id in api_app.RUNS
+    assert run_store.get_run(old_id) is None  # 过期条目被清理
+    assert run_store.get_run(new_id) is not None
 
 
 def test_chat_unknown_thread_404(monkeypatch, tmp_path):
@@ -133,8 +144,9 @@ def test_chat_replaces_finished_run(env):
 
     client.post("/api/chat", json={"thread_id": thread_id, "message": "追问"})
 
-    run = api_app.RUNS[thread_id]
-    assert run.done is False and run.topic == "追问"  # 新的 Run 对象接管该线程
+    run = run_store.get_run(thread_id)
+    assert run.status == "running" and run.topic == "追问"  # 新一轮事件接管该线程
+    _sse_events(client, thread_id)
 
 
 def test_memory_endpoints(env):
@@ -156,3 +168,104 @@ def test_report_endpoints_guard(env):
     client, _ = env
     assert client.get("/api/reports/不存在的报告.md").status_code == 404
     assert client.get("/api/reports/..%2Fsecret.md").status_code in (400, 404)  # 路径穿越被拒
+
+
+def test_chat_rejects_concurrent_run(env):
+    client, _ = env
+    thread_id = client.post("/api/research", json={"topic": "首次研究"}).json()["thread_id"]
+    response = client.post("/api/chat", json={"thread_id": thread_id, "message": "并发追问"})
+    assert response.status_code == 409
+
+
+def test_report_rejects_windows_absolute_path(env):
+    client, _ = env
+    assert client.get("/api/reports/C:%5CWindows%5Cwin.ini").status_code == 400
+    assert client.get("/api/reports/foo%5Cbar.md").status_code == 400
+
+
+def test_stats_endpoint(env):
+    client, _ = env
+    thread_id = client.post("/api/research", json={"topic": "统计任务"}).json()["thread_id"]
+    _sse_events(client, thread_id)
+
+    s = client.get("/api/stats").json()
+    assert s["runs"] >= 1
+    assert s["steps"] >= 2
+    assert s["tools"].get("SQL → SELECT 1", 0) >= 1
+    assert s["seconds"] >= 0
+
+
+def test_stream_replay_after_last_event_id(env):
+    client, _ = env
+    thread_id = client.post("/api/research", json={"topic": "重放任务"}).json()["thread_id"]
+    _sse_events(client, thread_id)
+
+    with client.stream(
+        "GET",
+        f"/api/research/{thread_id}/stream",
+        headers={"Last-Event-ID": "1"},
+    ) as resp:
+        events = [line[5:].strip() for line in resp.iter_lines() if line.startswith("data:")]
+    assert any("最终结论" in event for event in events)
+    assert all("SELECT 1" not in event for event in events)  # 已消费的事件不重复
+
+
+def test_idempotency_key_returns_same_thread(env):
+    client, _ = env
+    headers = {"Idempotency-Key": "same-request"}
+    first = client.post("/api/research", json={"topic": "幂等任务"}, headers=headers).json()
+    second = client.post("/api/research", json={"topic": "幂等任务"}, headers=headers).json()
+    assert first["thread_id"] == second["thread_id"]
+    assert second["idempotent"] is True
+    _sse_events(client, first["thread_id"])
+
+
+def test_cancel_running_run(env, monkeypatch, tmp_path):
+    import threading
+
+    class BlockingAgent(FakeAgent):
+        release = threading.Event()
+
+        def stream(self, inp, config, stream_mode=None):
+            yield {"model": {"messages": [FakeMsg(content="开始")]}}
+            self.release.wait(timeout=3)
+            yield {"model": {"messages": [FakeMsg(content="结束")]}}
+
+    blocking = BlockingAgent()
+    monkeypatch.setattr(api_app, "build", lambda checkpointer: blocking)
+    client, _ = env
+    monkeypatch.setattr(api_app, "build", lambda checkpointer: blocking)
+    thread_id = client.post("/api/research", json={"topic": "取消任务"}).json()["thread_id"]
+    time.sleep(0.05)
+
+    response = client.post(f"/api/research/{thread_id}/cancel")
+    assert response.status_code == 200
+    blocking.release.set()
+    events = _sse_events(client, thread_id)
+
+    assert any(event["type"] == "cancelled" for event in events)
+    assert run_store.get_run(thread_id).status == "cancelled"
+
+
+def test_recover_running_runs(env):
+    client, _ = env
+    thread_id = client.post("/api/research", json={"topic": "恢复任务"}).json()["thread_id"]
+    _sse_events(client, thread_id)
+    con = run_store._connect()
+    try:
+        con.execute("UPDATE runs SET status='running', done_at=NULL WHERE thread_id=?", (thread_id,))
+        con.commit()
+    finally:
+        con.close()
+
+    assert run_store.recover_running_runs() == 1
+    run = run_store.get_run(thread_id)
+    assert run.status == "error" and "重启" in run.error
+
+
+def test_api_key_guard(env, monkeypatch):
+    client, _ = env
+    monkeypatch.setattr(cfg, "API_KEY", "secret")
+    assert client.get("/api/memory").status_code == 401
+    assert client.get("/api/memory", headers={"X-API-Key": "secret"}).status_code == 200
+    assert client.get("/api/memory", headers={"Authorization": "Bearer secret"}).status_code == 200

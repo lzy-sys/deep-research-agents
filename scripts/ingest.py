@@ -18,7 +18,13 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 
 from deep_research import configuration as cfg  # noqa: E402
-from deep_research.tools.retrieval import INDEX_FILE, get_embeddings, get_vectorstore, retrieve_docs, save_vectorstore  # noqa: E402
+from deep_research.tools.retrieval import (  # noqa: E402
+    INDEX_FILE,
+    get_embeddings,
+    get_vectorstore,
+    retrieve_docs,
+    save_vectorstore,
+)
 
 SECTION_RE = re.compile(r"\((https://docs\.langchain\.com/oss/python/[a-z0-9-]+/llms\.txt)\)")
 BIGMODEL_LLMSTXT = "https://docs.bigmodel.cn/llms.txt"
@@ -80,7 +86,11 @@ def download_all(pages: dict[str, list[str]]) -> list[Document]:
             title = re.search(r"^#\s+(.+)$", content, re.M)
             return Document(
                 page_content=content,
-                metadata={"source": f"{sec}/{slug}", "title": title.group(1).strip() if title else slug},
+                metadata={
+                    "source": f"{sec}/{slug}",
+                    "url": url,
+                    "title": title.group(1).strip() if title else slug,
+                },
             )
         except Exception as e:
             print(f"  [跳过] {url}: {e}")

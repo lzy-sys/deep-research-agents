@@ -4,9 +4,10 @@ services:
   api:
     build: .
     ports:
-      - "18000:8000"  # 宿主机 8000 已被 deepsearch-backend 占用，避开
-    cap_add:
-      - SYS_PTRACE  # 诊断用：允许 py-spy 抓线程堆栈
+      - "127.0.0.1:18000:8000"  # 仅本机访问，避免未认证 API 暴露到局域网
+    init: true
+    security_opt:
+      - no-new-privileges:true
     env_file: .env
     environment:
       # 容器内连宿主机 Ollama（Windows/Mac 用 host.docker.internal，Linux 加 extra_hosts）
@@ -18,7 +19,7 @@ services:
       - "host.docker.internal:host-gateway"
     command: uvicorn src.deep_research.api.app:app --host 0.0.0.0 --port 8000
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8000/health')"]
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8000/health').raise_for_status()"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -26,9 +27,10 @@ services:
   webui:
     build: .
     ports:
-      - "8501:8501"
-    cap_add:
-      - SYS_PTRACE  # 诊断用：允许 py-spy 抓线程堆栈
+      - "127.0.0.1:8501:8501"  # 仅本机访问；需要局域网共享时改为 8501:8501
+    init: true
+    security_opt:
+      - no-new-privileges:true
     env_file: .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
@@ -40,4 +42,9 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8501/_stcore/health').raise_for_status()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     command: streamlit run webui/app.py --server.port 8501 --server.address 0.0.0.0

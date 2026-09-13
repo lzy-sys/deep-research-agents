@@ -17,6 +17,8 @@ BAD_SQL = [
     "PRAGMA table_info(Album)",
     "ATTACH DATABASE 'x.db' AS x",
     "SELECT 1; SELECT 2",  # 多语句
+    "SELECT 1 -- 行注释混入 DROP TABLE x",
+    "SELECT 1 /* 块注释混入 DROP */",
     "",  # 空
     "VACUUM",
 ]
@@ -52,7 +54,8 @@ def test_limit_autocomplete_and_preserve():
 @_needs_db
 def test_run_sql_returns_markdown_table():
     out = run_sql.invoke({"sql": "SELECT title, rating FROM movies ORDER BY total_ratings DESC LIMIT 2"})
-    assert out.startswith("|"), "应输出 Markdown 表格"
+    assert out.startswith("<untrusted_database_content>")
+    assert "|" in out, "应输出 Markdown 表格"
     assert "title" in out.lower()
 
 
@@ -67,3 +70,9 @@ def test_readonly_physical_barrier():
     with pytest.raises(sqlite3.OperationalError):  # 只读 URI 下写操作物理失败
         con.execute("CREATE TABLE t_should_fail (id INTEGER)")
     con.close()
+
+
+def test_limit_is_capped():
+    out, err = check_sql("SELECT title FROM movies LIMIT 999999")
+    assert err is None
+    assert out.upper().endswith("LIMIT 50")

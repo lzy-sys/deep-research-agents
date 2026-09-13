@@ -18,5 +18,8 @@ jobs:
       - name: 安装依赖（uv.lock 锁定版本）
         run: uv sync --frozen
 
-      - name: 单元测试
-        run: uv run pytest -q
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: 单元测试与覆盖率
+        run: uv run pytest --cov=deep_research --cov-report=term-missing -q

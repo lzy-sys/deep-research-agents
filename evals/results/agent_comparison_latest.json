@@ -1,0 +1,141 @@
+{
+  "generated_at": "2026-09-13T04:30:22+00:00",
+  "git": {
+    "sha": "2bed40be4563fa7fd4f9e3f2b66551597129f109",
+    "dirty": true
+  },
+  "samples": 3,
+  "retrieval_mode": "fixed_single_vector",
+  "summary": {
+    "single_seconds_p50": 11.146618499999022,
+    "multi_seconds_p50": 79.503353099999,
+    "single_total_tokens": 6059,
+    "multi_total_tokens": 68755,
+    "single_quality_proxy": 0.7999999999999999,
+    "multi_quality_proxy": 1.0,
+    "single_judge_quality": 8.333333333333334,
+    "multi_judge_quality": 6.666666666666667
+  },
+  "rows": [
+    {
+      "id": "lg-01",
+      "question": "LangGraph 的 Send API 怎么实现动态并行派发子任务？",
+      "single": {
+        "answer": "知识库中未找到关于 LangGraph Send API 如何实现动态并行派发子任务的具体说明。\n\n本次检索返回的片段仅涉及：多智能体自定义工作流与 LangGraph 概览的入口链接 [1]、LangGraph 案例研究列表 [2]、图执行可视化文档标题 [3]、deepagents 子代理的隔离/分叉对比 [4]，以及无关的实时 API 令牌字段定义 [5]，均未包含 Send API 的用法或动态并行派发机制。\n\n建议查阅 LangGraph 官方文档中关于 `Send`（用于 map-reduce / 动态扇出）的章节以获取准确信息。",
+        "seconds": 8.147212899999431,
+        "usage": {
+          "input_tokens": 1365,
+          "output_tokens": 190,
+          "total_tokens": 1555
+        },
+        "citations": 5,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": false,
+          "score": 0.7
+        }
+      },
+      "multi": {
+        "answer": "# LangGraph Send API：动态并行派发子任务\n\n## 1. 概念定位\n\nLangGraph 支持 map-reduce 及其他高级分支模式，用的就是 **Send API** [1]。官方文档把 Send API 与 Command API 并列为 LangGraph 的控制特性：Send API 用于 map-reduce 工作流，Command API 用于把状态更新与跨节点\"跳转\"结合起来 [2]。\n\n底层机制上，LangGraph 采用消息传递（message passing）：节点完成后沿一条或多条边向其他节点发送消息，接收节点执行函数并把结果传给下一批节点，程序以离散的 \"super-steps\" 推进 [3]。Send 正是\"一次向多个目标节点派发消息\"的机制。\n\n## 2. 导入路径\n\n```python\nfrom langgraph.graph import StateGraph, START, END\nfrom langgraph.types import Send\nfrom typing_extensions import TypedDict, Annotated\nimport operator\n```\n[1]\n\n即 `Send` 从 **`langgraph.types`** 导入 [1]。\n\n## 3. 在条件边/映射函数中返回 Send 列表\n\n典型用法是写一个**映射函数（map function）**，返回 `Send` 对象列表，再把它注册为条件边：\n\n```python\ndef continue_to_jokes(state: OverallState):\n    return [Send(\"generate_joke\", {\"subject\": s}) for s in state[\"subjects\"]]\n```\n[1]\n\n对 `state[\"subjects\"]` 中每个 subject 各生成一个 `Send`，从而**动态地**（数量由运行时状态决定）并行派发多个 `generate_joke` 子任务。\n\n## 4. `Send(node, arg)` 的参数含义\n\n从 `Send(\"generate_joke\", {\"subject\": s})` 可读出 [1]：\n\n- **第一个参数 `node`**：目标节点名（字符串），这里是 `\"generate_joke\"`。\n- **第二个参数 `arg`**：传给该目标节点的**输入状态**（字典），这里是 `{\"subject\": s}`。注意它不是完整的 `OverallState`，而是只含 `subject` 键的局部输入——这正是 map 阶段\"每个子任务拿到自己那一份输入\"的体现。\n\n目标节点按这个局部输入读取数据：\n\n```python\ndef generate_joke(state: OverallState):\n    joke_map = {\n        \"lions\": \"Why don't lions like fast food? Because they can't catch it!\",\n        \"elephants\": \"Why don't elephants use computers? They're afraid of the mouse!\",\n        \"penguins\": \"Why don't penguins like talking to strangers at parties? Because they find it hard to break the ice.\"\n    }\n    return {\"jokes\": [joke_map[state[\"subject\"]]]}\n```\n[1]\n\n## 5. 与 reducer / 状态合并的配合\n\n这是 Send 能实现 reduce 的关键。被并行写入的字段必须带 **reducer**：\n\n```python\nclass OverallState(TypedDict):\n    topic: str\n    subjects: list[str]\n    jokes: Annotated[list[str], operator.add]\n    best_selected_joke: str\n```\n[1]\n\n- `jokes` 用 `Annotated[list[str], operator.add]` 标注，reducer 是 `operator.add` [1]。\n- 每个并行的 `generate_joke` 各自返回 `{\"jokes\": [<一条笑话>]}` [1]；因为有 `operator.add`，多个子任务的返回值会被**累加合并**成最终的 `jokes` 列表，而不是互相覆盖——这就是 reduce 阶段的实现方式。\n- `topic`、`subjects`、`best_selected_joke` 没有 reducer，属于普通覆盖式字段 [1]。\n\n## 6. 完整 map-reduce 示例代码\n\n```python\nfrom langgraph.graph import StateGraph, START, END\nfrom langgraph.types import Send\nfrom typing_extensions import TypedDict, Annotated\nimport operator\n\nclass OverallState(TypedDict):\n    topic: str\n    subjects: list[str]\n    jokes: Annotated[list[str], operator.add]\n    best_selected_joke: str\n\ndef generate_topics(state: OverallState):\n    return {\"subjects\": [\"lions\", \"elephants\", \"penguins\"]}\n\ndef generate_joke(state: OverallState):\n    joke_map = {\n        \"lions\": \"Why don't lions like fast food? Because they can't catch it!\",\n        \"elephants\": \"Why don't elephants use computers? They're afraid of the mouse!\",\n        \"penguins\": \"Why don't penguins like talking to strangers at parties? Because they find it hard to break the ice.\"\n    }\n    return {\"jokes\": [joke_map[state[\"subject\"]]]}\n\ndef continue_to_jokes(state: OverallState):\n    return [Send(\"generate_joke\", {\"subject\": s}) for s in state[\"subjects\"]]\n\ndef best_joke(state: OverallState):\n    return {\"best_selected_joke\": \"penguins\"}\n```\n[1]\n\n> 说明：检索结果中的片段到此为止，**未包含**后续的 `add_node` / `add_conditional_edges` / `compile()` 组装代码，因此这部分不做推测。可确认的是：`continue_to_jokes` 这类返回 `Send` 列表的函数是作为**条件边**的路径函数使用的（文档把它归在 \"Map-Reduce and the send API\" 一节，并说明条件边可路由到多个目标节点）[1][4]。\n\n## 7. 相关补充：条件边可路由到多个节点\n\n文档在 Send 章节之前提示：条件边可以路由到多个目标节点，例如 [4]：\n\n```python\ndef route_bc_or_cd(state: State) -> Sequence[str]:\n    if state[\"which\"] == \"cd\":\n        return [\"c\", \"d\"]\n    return [\"b\", \"c\"]\n```\n[4]\n\n与 Send 的区别：返回节点名列表是**静态的、固定的几个目标**；返回 `Send` 列表则可**按运行时状态动态决定派发数量**，并为每个子任务携带不同输入 [1]。\n\n## 8. 与 Command 的对比\n\n若既需更新状态、又需路由到不同节点，应使用 `Command`；若只需路由而不更新状态，则用条件边 [5]。注意：在节点函数中返回 `Command` 时必须加返回类型注解，列出要路由到的节点名，例如 `Command[Literal[\"my_other_node\"]]`，这是图渲染所必需的 [5]。\n\n---\n\n## 来源清单\n\n| 编号 | 来源文件 / 文档标题 |\n|---|---|\n| [1] | `langgraph/oss__python__langgraph__use-graph-api.md` — *Use the graph API*（\"Map-Reduce and the send API\" 章节，含 `OverallState`、`generate_topics`、`generate_joke`、`continue_to_jokes`、`best_joke` 及导入语句） |\n| [2] | `langgraph/oss__python__langgraph__use-graph-api.md` — *Use the graph API*（开篇概述：Send API 用于 map-reduce，Command API 用于组合状态更新与节点跳转） |\n| [3] | `langgraph/oss__python__langgraph__graph-api.md` — *Graph API*（消息传递 / super-steps 机制） |\n| [4] | `langgraph/oss__python__langgraph__use-graph-api.md` — *Use the graph API*（条件边可路由到多个目标节点的 Tip 示例） |\n| [5] | `langgraph/oss__python__langgraph__graph-api.md` — *Graph API*（Command 与条件边的选择、`Command[Literal[...]]` 类型注解要求） |\n\n**未覆盖部分说明**：检索结果中未包含该 map-reduce 示例的图组装代码（`add_node` / `add_conditional_edges` / `compile`）以及 `Send` 的类签名定义。如需这部分细节，建议查阅 LangGraph 官方最新文档。",
+        "seconds": 79.503353099999,
+        "usage": {
+          "input_tokens": 31093,
+          "output_tokens": 4258,
+          "total_tokens": 35351
+        },
+        "citations": 25,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": true,
+          "score": 1.0
+        }
+      },
+      "judge": {
+        "single_score": 9,
+        "multi_score": 2,
+        "reason": "答案A准确、完整地解释了LangGraph Send API实现动态并行派发的机制：从langgraph.types导入Send、在条件边/映射函数中返回Send列表、Send(node, arg)参数含义、配合reducer(operator.add)实现reduce、给出完整map-reduce示例，并明确标注未覆盖部分，事实正确、相关性强、来源可信。答案B仅说明知识库未找到相关内容，未提供任何实质信息，虽诚实但未回答问题，相关性和有用性极低。",
+        "swapped": true
+      }
+    },
+    {
+      "id": "lg-02",
+      "question": "LangGraph 的 checkpointer 检查点是如何实现状态持久化的？",
+      "single": {
+        "answer": "## LangGraph Checkpointer 的状态持久化机制\n\n**核心原理**：checkpointer 在**每个 super-step（超步）**保存一份图状态的快照（checkpoint），并按 **threads（线程）**组织管理。只要在编译图时传入 checkpointer，就能启用持久化能力。\n\n**启用方式**：在 `StateGraph` 的 `compile()` 方法（或 `@entrypoint`）中传入 `checkpointer` 参数。若未提供，会触发 `MISSING_CHECKPOINTER` 错误。\n\n**带来的能力**：\n- Human-in-the-loop（人在回路）工作流\n- Time travel 调试（时间旅行）\n- 容错执行（fault-tolerant execution）\n- 对话记忆（conversational memory）\n\n**实现分层**：\n| 包 | 实现 | 适用场景 |\n|---|---|---|\n| `langgraph-checkpoint` | 基础接口 `BaseCheckpointSaver` + 序列化接口 `SerializerProtocol`；含内存实现 `InMemorySaver` | 实验用途，随 LangGraph 内置 |\n| `langgraph-checkpoint-sqlite` | `SqliteSaver` / `AsyncSqliteSaver` | 实验与本地工作流，需单独安装 |\n| `langgraph-checkpoint-postgres` | `PostgresSaver` / `AsyncPostgresSaver` | 生产环境（LangSmith 使用），需单独安装 |\n\n**生产实践**：使用数据库后端（如 Postgres），通过 `PostgresSaver.from_conn_string(DB_URI)` 创建 checkpointer 并传入 `compile(checkpointer=checkpointer)`；首次使用 Postgres checkpointer 时需调用 `checkpointer.setup()`。\n\n**来源**：\n- [1][2][3] `langgraph/oss__python__langgraph__checkpointers.md`\n- [4] `langgraph/oss__python__langgraph__errors__MISSING_CHECKPOINTER.md`\n- [5] `langgraph/oss__python__langgraph__add-memory.md`\n\n（注：知识库中未提供 checkpoint 内部序列化格式与具体存储表结构的细节。）",
+        "seconds": 18.594522499999584,
+        "usage": {
+          "input_tokens": 1848,
+          "output_tokens": 522,
+          "total_tokens": 2370
+        },
+        "citations": 5,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": true,
+          "score": 1.0
+        }
+      },
+      "multi": {
+        "answer": "# LangGraph Checkpointer 的状态持久化机制\n\n## 一、核心机制：按 super-step 保存状态快照\n\nCheckpointer 的核心行为是：**在每个 super-step（超级步）保存一份图状态的快照（snapshot），并按 thread（线程）组织** [2][4]。只要在编译图时传入 checkpointer，就能启用以下能力 [2][4]：\n\n- human-in-the-loop（人机协同）工作流\n- time travel debugging（时间旅行调试）\n- fault-tolerant execution（容错执行）\n- conversational memory（对话记忆）\n\n```python\nfrom langgraph.graph import StateGraph, START, END\nfrom langgraph.checkpoint.memory import InMemorySaver\nfrom langchain_core.runnables import RunnableConfig\nfrom typing import Annotated\nfrom typing_extensions import TypedDict\nfrom operator import add\n\nclass State(TypedDict):\n    foo: str\n    bar: Annotated[list[str], add]\n\ndef node_a(state: State):\n    return {\"foo\": \"a\", \"bar\": [\"a\"]}\n\ndef node_b(state: State):\n    return {\"foo\": \"b\", \"bar\": [\"b\"]}\n\nworkflow = StateGraph(State)\nworkflow.add_node(node_a)\nworkflow.add_node(node_b)\nworkflow.add_edge(START, \"node_a\")\nworkflow.add_edge(\"node_a\", \"node_b\")\nworkflow.add_edge(\"node_b\", END)\n\ncheckpointer = InMemorySaver()\ngraph = workflow.compile(checkpointer=checkpointer)\n```\n[3]\n\nCheckpoint 会被持久化，因此可以在之后的任意时间点用来**恢复某个 thread 的状态** [3]。\n\n## 二、thread_id 的作用\n\nCheckpointer 与 Store 是 LangGraph 两套互补的持久化系统 [5]：\n\n| 维度 | Checkpointer | Store |\n|---|---|---|\n| 用途 | 对话连续性、human-in-the-loop、time travel、容错 | 用户偏好、事实、共享知识 |\n| 访问方式 | **在 graph config 中传入 `thread_id`** | 从节点或应用代码中读写条目 |\n| 记忆范围 | 短期、thread 作用域 | 长期、跨 thread |\n\n[5][3]\n\n也就是说，checkpointer 是**线程作用域（thread-scoped）的短期记忆**，通过 config 里的 `thread_id` 来定位和恢复对应线程的状态 [5][3]。\n\n## 三、BaseCheckpointSaver 接口与序列化\n\n`langgraph-checkpoint` 包提供两部分基础能力 [1]：\n\n- **`BaseCheckpointSaver`**：checkpointer saver 的基础接口\n  https://reference.langchain.com/python/langgraph/checkpoints/#langgraph.checkpoint.base.BaseCheckpointSaver\n- **`SerializerProtocol`**：序列化/反序列化接口\n  https://reference.langchain.com/python/langgraph/checkpoints/#langgraph.checkpoint.serde.base.SerializerProtocol\n\n该包还包含内存版实现 `InMemorySaver`，用于实验；LangGraph 默认自带 `langgraph-checkpoint` [1]。\n\n## 四、不同 saver 实现\n\n| 包 | 实现类 | 适用场景 | 是否需单独安装 |\n|---|---|---|---|\n| `langgraph-checkpoint` | `InMemorySaver` | 实验 | 否，LangGraph 自带 [1] |\n| `langgraph-checkpoint-sqlite` | `SqliteSaver` / `AsyncSqliteSaver` | 实验与本地工作流 | 需单独安装 [4] |\n| `langgraph-checkpoint-postgres` | `PostgresSaver` / `AsyncPostgresSaver` | 生产环境（LangSmith 中使用） | 需单独安装 [4] |\n| `langchain-azure-cosmosdb` | `CosmosDBSaverSync` / `CosmosDBSaver` | Azure 生产环境，支持同步/异步与 Microsoft Entra ID 认证 | 需单独安装 [5] |\n\n## 五、与 interrupt / 时间旅行等特性的关系\n\n文档明确指出，checkpointer 在每个 super-step 保存快照这一机制，正是以下特性的基础 [2][4]：\n\n- **human-in-the-loop**：因为状态被持久化，可以在中途暂停并恢复\n- **time travel debugging**：因为每个 super-step 都有快照，可以回到历史检查点\n- **fault-tolerant execution**：因为状态可恢复，执行中断后能继续\n- **conversational memory**：因为 thread 状态被持久化，对话可以延续\n\n同时，checkpointer 与 store 通常**配合使用**：checkpointer 跟踪当前 thread，store 跟踪跨 thread 的持久信息 [5]。\n\n---\n\n## 来源\n\n1. `langgraph/oss__python__langgraph__checkpointers.md` — Checkpointers 文档（含 `langgraph-checkpoint`、`BaseCheckpointSaver`、`SerializerProtocol`、`InMemorySaver` 说明）\n2. 同上 — Checkpointers 文档开头定义（\"A checkpointer saves a snapshot of graph state at each super-step, organized into **threads**\"）\n3. 同上 — Checkpointers 文档中的示例代码与\"Checkpoints are persisted...\"说明\n4. 同上 — Checkpointers 文档中 `langgraph-checkpoint-sqlite` / `langgraph-checkpoint-postgres` 说明\n5. `langgraph/oss__python__langgraph__persistence.md` — Persistence 文档（Checkpointer vs Store 对比表、`thread_id` 访问模式、`langchain-azure-cosmosdb` 说明）\n\n> 说明：以上内容全部来自知识库检索片段。关于 checkpoint 的**具体存储表结构、channel values 的逐字段序列化细节、`get_state` / `get_state_history` 等 API 的精确签名**，本次检索结果中未包含，知识库中未找到对应证据，建议查阅官方 API reference 补充。",
+        "seconds": 46.519890999999916,
+        "usage": {
+          "input_tokens": 14722,
+          "output_tokens": 2904,
+          "total_tokens": 17626
+        },
+        "citations": 20,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": true,
+          "score": 1.0
+        }
+      },
+      "judge": {
+        "single_score": 8,
+        "multi_score": 9,
+        "reason": "两答案事实均正确，覆盖了 checkpoint、thread、持久化等核心关键词。答案A简洁准确，说明了按 super-step 保存快照、按 thread 组织、启用方式、分层实现与生产实践，并诚实标注知识库缺失细节。答案B内容更丰富，额外补充了 thread_id 定位机制、Checkpointer vs Store 对比、完整示例代码、更多 saver 实现（含 CosmosDB）以及各特性与持久化的关系，来源标注更细致，问题相关性和信息完整度更高。两者来源可信度相当，均基于知识库文档。综合来看答案B略优。",
+        "swapped": false
+      }
+    },
+    {
+      "id": "lg-03",
+      "question": "LangGraph 的 interrupt 如何实现人工审批（human-in-the-loop）？",
+      "single": {
+        "answer": "**核心机制**：LangGraph 的 HITL 建立在 **interrupt（显式暂停点）+ checkpointer（检查点）** 之上。Agent 执行到 interrupt 时会把控制权交还客户端，暂停是**持久化**的——用户可刷新页面、由其他组件审批，Agent 仍能从停止处精确恢复，而不是重放整个运行。[2][3]\n\n**两种使用方式**：\n\n1. **函数式 API**：用 `interrupt()` 函数 + `Command` 原语。在任务中调用 `interrupt(\"Please provide feedback: ...\")` 暂停，恢复时把人工输入作为返回值继续执行。[4]\n2. **中间件方式**：`HumanInTheLoopMiddleware` 可在工具调用执行前暂停，供人工**批准、编辑或拒绝**。适用于高风险操作（数据库写入、金融交易）、强制人工监督的合规流程、需人工反馈的长对话。[5]\n\n**Deep Agents 场景**：通过 `interrupt_on` 参数指定哪些工具需要审批；设置后会自动加入 `HumanInTheLoopMiddleware`。若运行在工具返回结果前被取消/中断，同一栈中的 `PatchToolCallsMiddleware` 会自动修复消息历史。[1]\n\n**重要前提**：HITL 中间件**必须配置 checkpointer** 才能在中断间保持状态。[5]\n\n来源：[1] deepagents human-in-the-loop；[2][3] langchain frontend human-in-the-loop；[4] langgraph use-functional-api；[5] langchain middleware built-in。",
+        "seconds": 11.146618499999022,
+        "usage": {
+          "input_tokens": 1746,
+          "output_tokens": 388,
+          "total_tokens": 2134
+        },
+        "citations": 11,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": false,
+          "score": 0.7
+        }
+      },
+      "multi": {
+        "answer": "# LangGraph 的 interrupt 如何实现人工审批（human-in-the-loop）\n\n## 一、核心机制：interrupt + checkpointer + Command\n\nLangGraph 的 `interrupt` 允许你在图的特定节点暂停执行，等待外部输入后再继续，这正是 human-in-the-loop 模式的基础 [2]。\n\n- **暂停与持久化**：当 `interrupt` 被触发时，LangGraph 会通过其 **persistence（持久化）层**保存图状态，并无限期等待，直到你恢复执行 [2]。因为 HITL 建立在 LangGraph 的 interrupts 和 checkpoints 之上，暂停是**持久化（durable）**的——用户刷新页面、审批人从不同组件回复，agent 都会从执行停止的精确位置继续，而不是重放整个运行 [3]。\n- **恢复执行**：通过 `Command` 重新调用图来恢复执行，`Command(resume=...)` 传入的值会成为节点内部 `interrupt()` 调用的返回值 [2][5]。\n\n## 二、代码示例\n\n### 1. 在节点中调用 `interrupt()`（审批节点）\n\n```python\nfrom langgraph.types import interrupt\n\ndef approval_node(state: State):\n    # Pause and ask for approval\n    approved = interrupt(\"Do you approve this action?\")\n\n    # When you resume, Command(resume=...) returns that value here\n    return {\"approved\": approved}\n```\n\n调用 `interrupt` 时发生两件事 [5]：\n1. **图执行在 `interrupt` 被调用的精确位置挂起**；\n2. **状态通过 checkpointer 保存**，以便之后恢复执行（生产环境应使用持久化 checkpointer，例如由数据库支撑）。\n\n### 2. 函数式 API（Functional API）中的 HITL\n\n函数式 API 同样支持使用 `interrupt` 函数和 `Command` 原语实现 human-in-the-loop [4]。示例：先追加 `\"bar\"`，暂停等待人工输入，恢复时追加人工输入，最后追加 `\"qux\"`：\n\n```python\nfrom langgraph.func import entrypoint, task\nfrom langgraph.types import Command, interrupt\n\n\n@task\ndef step_1(input_query):\n    \"\"\"Append bar.\"\"\"\n    return f\"{input_query} bar\"\n\n\n@task\ndef human_feedback(input_query):\n    \"\"\"Append user input.\"\"\"\n    feedback = interrupt(f\"Please provide feedback: {input_query}\")\n    return f\"{input_query} {feedback}\"\n```\n\n## 三、Deep Agents 中的配置化人工审批\n\n在 Deep Agents 中，可以通过 `interrupt_on` 参数配置哪些工具需要人工审批。当设置了 `interrupt_on` 时，`HumanInTheLoopMiddleware` 会被添加到 Deep Agents 栈中；如果运行在工具返回结果之前被取消或中断，同一栈中的 `PatchToolCallsMiddleware` 会自动修复消息历史 [1]。\n\n## 四、典型应用场景\n\n并非每个 agent 动作都应无人监督地运行。当 agent 即将发送邮件、删除记录、执行金融交易或任何不可逆操作时，需要人工先审查并批准该动作。HITL 模式让 agent 暂停执行、向用户展示待处理动作，并仅在获得明确批准后恢复 [3]。\n\n---\n\n**来源标注**：\n- [1] `deepagents/oss__python__deepagents__human-in-the-loop.md`（Deep Agents 的 interrupt_on / HumanInTheLoopMiddleware）\n- [2] `langgraph/oss__python__langgraph__interrupts.md`（interrupt 暂停、持久化、Command 恢复）\n- [3] `langchain/oss__python__langchain__frontend__human-in-the-loop.md`（HITL 基于 interrupts 和 checkpoints，暂停持久化）\n- [4] `langgraph/oss__python__langgraph__use-functional-api.md`（函数式 API 的 interrupt + Command 示例）\n- [5] `langgraph/oss__python__langgraph__interrupts.md`（approval_node 示例及 interrupt 行为细节）",
+        "seconds": 129.78856350000024,
+        "usage": {
+          "input_tokens": 13512,
+          "output_tokens": 2266,
+          "total_tokens": 15778
+        },
+        "citations": 14,
+        "quality": {
+          "keyword_coverage": 1.0,
+          "source_hit": true,
+          "score": 1.0
+        }
+      },
+      "judge": {
+        "single_score": 8,
+        "multi_score": 9,
+        "reason": "两个答案在事实正确性、相关性和来源可信度上均表现良好，都准确覆盖了期望关键词（interrupt、人工、审批），并正确阐述了 interrupt + checkpointer 的持久化暂停与 Command 恢复机制、函数式 API、HumanInTheLoopMiddleware 及 Deep Agents 的 interrupt_on 配置。答案 A 简洁精炼，要点齐全，但缺少代码示例，对恢复机制（Command(resume=...) 作为 interrupt 返回值）的说明较简略。答案 B 更全面：包含 approval_node 和函数式 API 的完整代码示例、interrupt 触发时的两件事（挂起+状态保存）、典型应用场景，结构清晰、来源标注更详细，直接演示了人工审批的实现方式，因此得分略高。",
+        "swapped": false
+      }
+    }
+  ]
+}

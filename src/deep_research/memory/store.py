@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 
 def _connect() -> sqlite3.Connection:
-    con = sqlite3.connect(DB_PATH)
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    con.execute("PRAGMA busy_timeout=10000")
+    con.execute("PRAGMA journal_mode=WAL")
     con.row_factory = sqlite3.Row
     return con
 
@@ -103,6 +105,13 @@ def add_entry(category: str, content: str) -> tuple[int, str]:
     now = datetime.now().isoformat(timespec="seconds")
     con = _connect()
     try:
+        existing = con.execute(
+            "SELECT id FROM memory_entry WHERE category=? AND content=? LIMIT 1",
+            (category, content),
+        ).fetchone()
+        if existing is not None:
+            return existing["id"], "（内容已存在，跳过重复记忆）"
+
         count = con.execute("SELECT COUNT(*) FROM memory_entry").fetchone()[0]
         note = ""
         if count >= CAPACITY:
@@ -130,9 +139,11 @@ def delete_entry(entry_id: int) -> bool:
     con = _connect()
     try:
         cur = con.execute("DELETE FROM memory_entry WHERE id=?", (entry_id,))
-        _bump_version(con)
+        deleted = cur.rowcount > 0
+        if deleted:
+            _bump_version(con)
         con.commit()
-        return cur.rowcount > 0
+        return deleted
     finally:
         con.close()
 

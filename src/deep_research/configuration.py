@@ -41,6 +41,9 @@ RAG_TOP_K = 5
 # ===== SSE 事件流 =====
 STREAM_IDLE_TIMEOUT = int(os.getenv("STREAM_IDLE_TIMEOUT", "660"))  # 无事件判超时秒数；api 判定与 webui 读超时共用同一常量
 
+# ===== API 鉴权 =====
+API_KEY = os.getenv("API_KEY", "")  # 为空时仅适合本机运行；部署时设置后保护全部 /api
+
 DOCS_LLMSTXT = "https://docs.langchain.com/llms.txt"
 DOUBAN_CSV_URL = (
     "https://raw.githubusercontent.com/dengfuping/douban-movies-spider/main/"

@@ -83,3 +83,11 @@ def test_migration_from_legacy_agents_md(db, monkeypatch, tmp_path):
     # 迁移只跑一次：清空后不得从旧文件重复导入
     db.reset_memory()
     assert db.list_entries() == []
+
+
+def test_duplicate_entry_is_ignored(db):
+    entry_id, _ = db.add_entry("偏好", "x")
+    duplicate_id, note = db.add_entry("偏好", "x")
+    assert duplicate_id == entry_id
+    assert "重复" in note
+    assert len(db.list_entries()) == 1

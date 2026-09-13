@@ -29,7 +29,7 @@ def main() -> int:
     missing = [k for k in ("OPENCODE_API_KEY", "TAVILY_API_KEY") if not os.getenv(k) or "your-key" in os.getenv(k, "")]
     tavily_needed = os.getenv("SEARCH_PROVIDER", "tavily") == "tavily"
     if tavily_needed and "TAVILY_API_KEY" in missing:
-        print(f"!! .env 缺少有效 Key: TAVILY_API_KEY（先填 .env 再跑）\n")
+        print("!! .env 缺少有效 Key: TAVILY_API_KEY（先填 .env 再跑）\n")
 
     # 1. 模型端点列表
     print(f"\n[1/5] 模型端点（provider={provider}）")
